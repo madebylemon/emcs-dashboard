@@ -61,11 +61,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─── Constants ────────────────────────────────────────────────────────────────
-# Monochrome shades: Energy = dark, Momentum = mid-gray, Both = light-gray
+# Science-coded colors: Energy = blue, Momentum = red, Both = purple
 TYPE_COLORS = {
-    "E":   "#111111",
-    "M":   "#777777",
-    "E&M": "#bbbbbb",
+    "E":   "#2196F3",   # blue   — Energy
+    "M":   "#F44336",   # red    — Momentum
+    "E&M": "#9C27B0",   # purple — Both
+}
+# Lighter (transparent) variants for Pre-Test bars
+TYPE_COLORS_LIGHT = {
+    "E":   "rgba(33,150,243,0.35)",
+    "M":   "rgba(244,67,54,0.35)",
+    "E&M": "rgba(156,39,176,0.35)",
 }
 TYPE_LABELS = {"E": "Energy", "M": "Momentum", "E&M": "Energy & Momentum"}
 OVERALL_ALPHA = 0.7563
@@ -259,47 +265,49 @@ with tab1:
 # ════════════════════════════════════════════
 with tab2:
     st.markdown("### Pre-Test vs Post-Test Correctness with Normalized Gain")
-    st.caption("Bars = % correct · Line = normalized gain (right axis)")
+    st.caption("Light bar = Pre-Test · Dark bar = Post-Test · Diamond = Normalized Gain · Color = item type")
 
     fig2 = make_subplots(specs=[[{"secondary_y": True}]])
 
+    pre_clrs  = [TYPE_COLORS_LIGHT[t] for t in df["type"]]
+    post_clrs = [TYPE_COLORS[t]       for t in df["type"]]
+
     fig2.add_trace(go.Bar(
         name="Pre-Test", x=df["item"], y=df["pre_test"],
-        marker_color="#aaaaaa", opacity=0.9,
+        marker_color=pre_clrs, opacity=0.9,
         hovertemplate="<b>%{x}</b><br>Pre-Test: %{y:.2f}<extra></extra>",
     ), secondary_y=False)
 
     fig2.add_trace(go.Bar(
         name="Post-Test", x=df["item"], y=df["post_test"],
-        marker_color="#333333", opacity=0.9,
+        marker_color=post_clrs, opacity=0.9,
         hovertemplate="<b>%{x}</b><br>Post-Test: %{y:.2f}<extra></extra>",
     ), secondary_y=False)
 
-    # Gain line — solid for positive, dashed appearance via opacity for negative
+    # Gain markers — colored by type, faded if negative
     for _, row in df.iterrows():
-        opacity = 1.0 if row["gain"] >= 0 else 0.5
+        opacity = 1.0 if row["gain"] >= 0 else 0.45
         fig2.add_trace(go.Scatter(
             x=[row["item"]], y=[row["gain"]],
             mode="markers",
             showlegend=False,
             marker=dict(
-                color="#111" if row["gain"] >= 0 else "#999",
-                size=8,
+                color=TYPE_COLORS[row["type"]],
+                size=9,
                 symbol="diamond",
                 opacity=opacity,
+                line=dict(color="#fff", width=1),
             ),
             hovertemplate=f"<b>{row['item']}</b><br>Gain: {row['gain']:.2f}<extra></extra>",
         ), secondary_y=True)
 
-    # Legend entries
-    fig2.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers", name="Gain ≥ 0",
-        marker=dict(color="#111", size=8, symbol="diamond"),
-    ), secondary_y=True)
-    fig2.add_trace(go.Scatter(
-        x=[None], y=[None], mode="markers", name="Gain < 0",
-        marker=dict(color="#999", size=8, symbol="diamond", opacity=0.5),
-    ), secondary_y=True)
+    # Type legend entries
+    for t_key, t_label in TYPE_LABELS.items():
+        fig2.add_trace(go.Scatter(
+            x=[None], y=[None], mode="markers", name=t_label,
+            marker=dict(color=TYPE_COLORS[t_key], size=10, symbol="square"),
+            showlegend=True,
+        ), secondary_y=False)
 
     if show_thresholds:
         fig2.add_hline(y=0, line=dict(color="#888", width=1, dash="dot"), secondary_y=True)
