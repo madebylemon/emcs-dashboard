@@ -1,3 +1,4 @@
+import numpy as np
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -11,15 +12,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── CSS — clean black & white ───────────────────────────────────────────────
+# ─── CSS ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Base */
     .stApp { background-color: #ffffff; color: #111111; }
     [data-testid="stSidebar"] { background-color: #f5f5f5; border-right: 1px solid #ddd; }
     [data-testid="stSidebar"] * { color: #111111 !important; }
 
-    /* KPI Cards */
     .kpi-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
     .kpi-card {
         flex: 1; min-width: 150px;
@@ -30,12 +29,10 @@ st.markdown("""
     .kpi-value { font-size: 28px; font-weight: 700; color: #111; }
     .kpi-value.warn { color: #111; border-bottom: 2px solid #111; display: inline-block; }
 
-    /* Tabs */
     .stTabs [data-baseweb="tab-list"] { border-bottom: 2px solid #ddd; gap: 0; }
     .stTabs [data-baseweb="tab"] { background: transparent; color: #666; font-weight: 500; border-radius: 0; }
     .stTabs [aria-selected="true"] { color: #111 !important; border-bottom: 2px solid #111; }
 
-    /* Flagged cards */
     .flag-card {
         background: #f9f9f9; border-left: 3px solid #111;
         padding: 14px 18px; margin-bottom: 12px; border-radius: 0 4px 4px 0;
@@ -43,7 +40,6 @@ st.markdown("""
     .flag-card h4 { color: #111; margin: 0 0 6px 0; font-size: 14px; }
     .flag-card p  { color: #333; margin: 0; font-size: 13px; line-height: 1.6; }
 
-    /* Header */
     .main-header {
         border-bottom: 2px solid #111; padding: 16px 0 12px 0; margin-bottom: 20px;
     }
@@ -51,7 +47,6 @@ st.markdown("""
     .main-header p  { color: #555; margin: 4px 0 0 0; font-size: 13px; }
     .stMarkdown hr  { border-color: #ddd; }
 
-    /* Force all main-area text to black */
     .stApp * { color: #111111; }
     .stApp p, .stApp span, .stApp div, .stApp label,
     .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 { color: #111111 !important; }
@@ -61,25 +56,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─── Constants ────────────────────────────────────────────────────────────────
-# Science-coded colors: Energy = blue, Momentum = red, Both = purple
 TYPE_COLORS = {
     "E":   "#2196F3",   # blue   — Energy
     "M":   "#F44336",   # red    — Momentum
     "E&M": "#9C27B0",   # purple — Both
 }
-# Lighter (transparent) variants for Pre-Test bars
 TYPE_COLORS_LIGHT = {
     "E":   "rgba(33,150,243,0.35)",
     "M":   "rgba(244,67,54,0.35)",
     "E&M": "rgba(156,39,176,0.35)",
 }
-TYPE_LABELS = {"E": "Energy", "M": "Momentum", "E&M": "Energy & Momentum"}
-OVERALL_ALPHA = 0.7563
-PLOT_BG   = "#ffffff"
-PAPER_BG  = "#ffffff"
-GRID_CLR  = "#eeeeee"
-AXIS_CLR  = "#333333"
-FLAG_CLR  = "#111111"   # bold black for flagged items / threshold lines
+TYPE_LABELS  = {"E": "Energy", "M": "Momentum", "E&M": "Energy & Momentum"}
+PLOT_BG      = "#ffffff"
+PAPER_BG     = "#ffffff"
+GRID_CLR     = "#eeeeee"
+AXIS_CLR     = "#333333"
+FLAG_CLR     = "#111111"
+GAIN_POS_CLR = "#27ae60"   # green  — positive gain
+GAIN_NEG_CLR = "#e74c3c"   # red    — negative gain
 
 # ─── Data ─────────────────────────────────────────────────────────────────────
 @st.cache_data
@@ -105,7 +99,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Psychometric Thresholds")
-    st.markdown("""
+    st.markdown("""\
 | Metric | Threshold |
 |---|---|
 | CTT Difficulty | ≥ 0.20 |
@@ -113,8 +107,12 @@ with st.sidebar:
 | Point-Biserial | ≥ 0.20 |
 | IRT Discrimination | 0.50 – 2.50 |
 | IRT Guessing | ≤ 0.25 |
-| Alpha if Removed | ≤ 0.7563 |
 """)
+    alpha_threshold = st.number_input(
+        "Alpha if Removed ≤",
+        min_value=0.0, max_value=1.0,
+        value=0.7563, step=0.0001, format="%.4f",
+    )
 
 # ─── Filter ───────────────────────────────────────────────────────────────────
 df = df_full[df_full["type_label"].isin(selected_types)].copy()
@@ -168,7 +166,6 @@ LAYOUT_BASE = dict(
 )
 
 def clean_axes(fig, rows=1):
-    """Apply clean B&W axis style to all axes in figure."""
     for i in range(1, rows + 1):
         suffix = "" if i == 1 else str(i)
         for ax in [f"xaxis{suffix}", f"yaxis{suffix}"]:
@@ -181,20 +178,23 @@ def clean_axes(fig, rows=1):
                     zeroline=False,
                 )
 
+LEGEND_STYLE = dict(bgcolor="#fff", bordercolor="#ddd", borderwidth=1, font=dict(color="#111111"))
+
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Tab 1 — Discrimination vs Difficulty",
     "Tab 2 — Pre/Post & Gain",
-    "Tab 3 — IRT Parameters",
+    "Tab 3 — IRT Scatter",
     "Tab 4 — Full Metrics Table",
+    "Tab 5 — Item Characteristic Curves",
 ])
 
 # ════════════════════════════════════════════
-# TAB 1 — Scatter
+# TAB 1 — CTT Scatter (uniform dot size)
 # ════════════════════════════════════════════
 with tab1:
     st.markdown("### CTT Discrimination vs Difficulty")
-    st.caption("Dot size = IRT guessing parameter · Shaded region = acceptable zone (both > 0.20)")
+    st.caption("Shaded region = acceptable zone (both > 0.20) · Color = item type")
 
     fig1 = go.Figure()
 
@@ -221,22 +221,21 @@ with tab1:
             mode="markers",
             name=t_label,
             marker=dict(
-                size=sub["irt_guess"] * 80 + 8,
+                size=12,
                 color=TYPE_COLORS[t_key],
-                opacity=0.80,
+                opacity=0.85,
                 line=dict(
                     color=[FLAG_CLR if p else TYPE_COLORS[t_key] for p in is_prob],
                     width=[3 if p else 1 for p in is_prob],
                 ),
             ),
             text=sub["item"],
-            customdata=sub[["irt_guess", "type_label"]].values,
+            customdata=sub[["type_label"]].values,
             hovertemplate=(
                 "<b>%{text}</b><br>"
                 "CTT Difficulty: %{x:.3f}<br>"
                 "CTT Discrimination: %{y:.3f}<br>"
-                "IRT Guessing: %{customdata[0]:.3f}<br>"
-                "Type: %{customdata[1]}<extra></extra>"
+                "Type: %{customdata[0]}<extra></extra>"
             ),
         ))
 
@@ -252,7 +251,7 @@ with tab1:
 
     fig1.update_layout(
         **LAYOUT_BASE,
-        legend=dict(bgcolor="#fff", bordercolor="#ddd", borderwidth=1, font=dict(color="#111111")),
+        legend=LEGEND_STYLE,
         xaxis=dict(title="CTT Difficulty (p-value)", range=[-0.02, 1.02]),
         yaxis=dict(title="CTT Discrimination", range=[-0.05, 0.70]),
         height=520,
@@ -261,11 +260,11 @@ with tab1:
     st.plotly_chart(fig1, use_container_width=True)
 
 # ════════════════════════════════════════════
-# TAB 2 — Pre/Post + Gain
+# TAB 2 — Pre/Post + Gain (green/red diamonds)
 # ════════════════════════════════════════════
 with tab2:
     st.markdown("### Pre-Test vs Post-Test Correctness with Normalized Gain")
-    st.caption("Light bar = Pre-Test · Dark bar = Post-Test · Diamond = Normalized Gain · Color = item type")
+    st.caption("Light bar = Pre-Test · Dark bar = Post-Test · Diamond = Normalized Gain · 🟢 Positive / 🔴 Negative")
 
     fig2 = make_subplots(specs=[[{"secondary_y": True}]])
 
@@ -284,21 +283,26 @@ with tab2:
         hovertemplate="<b>%{x}</b><br>Post-Test: %{y:.2f}<extra></extra>",
     ), secondary_y=False)
 
-    # Gain markers — colored by type, faded if negative
+    # Gain markers — green if positive, red if negative
     for _, row in df.iterrows():
-        opacity = 1.0 if row["gain"] >= 0 else 0.45
+        clr = GAIN_POS_CLR if row["gain"] >= 0 else GAIN_NEG_CLR
         fig2.add_trace(go.Scatter(
             x=[row["item"]], y=[row["gain"]],
             mode="markers",
             showlegend=False,
             marker=dict(
-                color=TYPE_COLORS[row["type"]],
-                size=9,
-                symbol="diamond",
-                opacity=opacity,
+                color=clr, size=10, symbol="diamond",
                 line=dict(color="#fff", width=1),
             ),
             hovertemplate=f"<b>{row['item']}</b><br>Gain: {row['gain']:.2f}<extra></extra>",
+        ), secondary_y=True)
+
+    # Legend entries for gain
+    for clr, label in [(GAIN_POS_CLR, "Gain ≥ 0"), (GAIN_NEG_CLR, "Gain < 0")]:
+        fig2.add_trace(go.Scatter(
+            x=[None], y=[None], mode="markers", name=label,
+            marker=dict(color=clr, size=10, symbol="diamond"),
+            showlegend=True,
         ), secondary_y=True)
 
     # Type legend entries
@@ -315,7 +319,7 @@ with tab2:
     fig2.update_layout(
         **LAYOUT_BASE,
         barmode="group",
-        legend=dict(bgcolor="#fff", bordercolor="#ddd", borderwidth=1, font=dict(color="#111111")),
+        legend=LEGEND_STYLE,
         height=510,
         xaxis=dict(tickangle=-45),
     )
@@ -326,82 +330,80 @@ with tab2:
     st.plotly_chart(fig2, use_container_width=True)
 
 # ════════════════════════════════════════════
-# TAB 3 — IRT Parameters
+# TAB 3 — IRT Discrimination vs Difficulty scatter
 # ════════════════════════════════════════════
 with tab3:
-    st.markdown("### IRT Parameter Overview")
-    st.caption("Three panels: Difficulty (b), Discrimination (a), Guessing (c)")
+    st.markdown("### IRT Discrimination vs. Difficulty")
+    st.caption("Dot size = IRT guessing (c) · Color = item type · Dashed lines = acceptable range")
 
-    fig3 = make_subplots(
-        rows=3, cols=1,
-        shared_xaxes=True,
-        subplot_titles=("IRT Difficulty (b)", "IRT Discrimination (a)", "IRT Guessing (c)"),
-        vertical_spacing=0.08,
-    )
+    fig3 = go.Figure()
 
-    colors_by_item = [TYPE_COLORS[t] for t in df["type"]]
-    border_colors  = [FLAG_CLR if p else "#aaa" for p in df["problematic"]] if show_problematic else ["#aaa"]*len(df)
-    border_widths  = [2 if p else 1 for p in df["problematic"]] if show_problematic else [1]*len(df)
-
-    fig3.add_trace(go.Bar(
-        x=df["item"], y=df["irt_diff"],
-        marker=dict(color=colors_by_item, line=dict(color=border_colors, width=border_widths)),
-        name="IRT Difficulty",
-        hovertemplate="<b>%{x}</b><br>b: %{y:.3f}<extra></extra>",
-    ), row=1, col=1)
-
-    fig3.add_trace(go.Bar(
-        x=df["item"], y=df["irt_disc"],
-        marker=dict(color=colors_by_item, line=dict(color=border_colors, width=border_widths)),
-        name="IRT Discrimination",
-        hovertemplate="<b>%{x}</b><br>a: %{y:.3f}<extra></extra>",
-    ), row=2, col=1)
     if show_thresholds:
-        for y_val, label in [(0.50, "Min 0.50"), (2.50, "Max 2.50")]:
-            fig3.add_hline(y=y_val, line=dict(color="#555", width=1, dash="dash"), row=2, col=1,
-                           annotation_text=label, annotation_position="top left",
-                           annotation_font=dict(color="#555", size=9))
+        # Acceptable discrimination band (0.50 – 2.50)
+        fig3.add_hrect(y0=0.50, y1=2.50,
+                       fillcolor="rgba(0,0,0,0.04)",
+                       line=dict(color="rgba(0,0,0,0.25)", width=1),
+                       layer="below")
+        fig3.add_annotation(x=0.5, y=1.50, text="Acceptable Discrimination Zone",
+                            showarrow=False, font=dict(color="#555", size=10))
+        fig3.add_hline(y=0.50, line=dict(color="#333", width=1, dash="dash"))
+        fig3.add_hline(y=2.50, line=dict(color="#333", width=1, dash="dash"))
 
-    fig3.add_trace(go.Bar(
-        x=df["item"], y=df["irt_guess"],
-        marker=dict(color=colors_by_item, line=dict(color=border_colors, width=border_widths)),
-        name="IRT Guessing",
-        hovertemplate="<b>%{x}</b><br>c: %{y:.3f}<extra></extra>",
-    ), row=3, col=1)
-    if show_thresholds:
-        for y_val, label in [(0.20, "Warn 0.20"), (0.25, "Max 0.25")]:
-            fig3.add_hline(y=y_val, line=dict(color="#555", width=1, dash="dash"), row=3, col=1,
-                           annotation_text=label, annotation_position="top left",
-                           annotation_font=dict(color="#555", size=9))
-
-    # Type legend
     for t_key, t_label in TYPE_LABELS.items():
-        fig3.add_trace(go.Bar(
-            x=[None], y=[None], name=t_label,
-            marker_color=TYPE_COLORS[t_key], showlegend=True,
-        ), row=1, col=1)
+        sub = df[df["type"] == t_key]
+        if sub.empty:
+            continue
+        is_prob = sub["problematic"] if show_problematic else pd.Series([False]*len(sub), index=sub.index)
+        fig3.add_trace(go.Scatter(
+            x=sub["irt_diff"], y=sub["irt_disc"],
+            mode="markers",
+            name=t_label,
+            marker=dict(
+                size=sub["irt_guess"] * 80 + 8,
+                color=TYPE_COLORS[t_key],
+                opacity=0.82,
+                line=dict(
+                    color=[FLAG_CLR if p else TYPE_COLORS[t_key] for p in is_prob],
+                    width=[3 if p else 1 for p in is_prob],
+                ),
+            ),
+            text=sub["item"],
+            customdata=sub[["irt_guess", "type_label"]].values,
+            hovertemplate=(
+                "<b>%{text}</b><br>"
+                "IRT Difficulty (b): %{x:.3f}<br>"
+                "IRT Discrimination (a): %{y:.3f}<br>"
+                "IRT Guessing (c): %{customdata[0]:.3f}<br>"
+                "Type: %{customdata[1]}<extra></extra>"
+            ),
+        ))
+
+    if show_problematic:
+        for _, row in df[df["problematic"]].iterrows():
+            fig3.add_annotation(
+                x=row["irt_diff"], y=row["irt_disc"],
+                text=f"  {row['item']}",
+                showarrow=True, arrowhead=2, arrowcolor=FLAG_CLR,
+                font=dict(color=FLAG_CLR, size=11, family="monospace"),
+                ax=40, ay=-30,
+            )
 
     fig3.update_layout(
-        paper_bgcolor=PAPER_BG, plot_bgcolor=PLOT_BG,
-        font=dict(color=AXIS_CLR, size=12),
-        height=680,
-        margin=dict(l=60, r=40, t=60, b=80),
-        showlegend=True,
-        legend=dict(bgcolor="#fff", bordercolor="#ddd", borderwidth=1, orientation="h", y=-0.13, font=dict(color="#111111")),
-        xaxis3=dict(tickangle=-45),
+        **LAYOUT_BASE,
+        legend=LEGEND_STYLE,
+        xaxis=dict(title="IRT Difficulty (b)"),
+        yaxis=dict(title="IRT Discrimination (a)", range=[-0.1, 3.2]),
+        height=520,
     )
-    for ax in fig3.layout:
-        if ax.startswith("xaxis") or ax.startswith("yaxis"):
-            fig3.layout[ax].update(showgrid=True, gridcolor=GRID_CLR, linecolor="#aaa",
-                                   tickcolor="#aaa", zeroline=False)
+    clean_axes(fig3)
     st.plotly_chart(fig3, use_container_width=True)
 
 # ════════════════════════════════════════════
-# TAB 4 — Full Table + Flagged Cards
+# TAB 4 — Full Table + Download + Flagged Cards
 # ════════════════════════════════════════════
 with tab4:
     st.markdown("### Full Psychometric Metrics")
-    st.caption("Cells in bold where values breach thresholds")
+    st.caption("Cells highlighted where values breach thresholds")
 
     display_cols = [
         "item", "type", "pre_test", "post_test", "gain",
@@ -413,7 +415,6 @@ with tab4:
     def style_table(df_s):
         styles = pd.DataFrame("", index=df_s.index, columns=df_s.columns)
         flagged = "background-color: #eeeeee; font-weight: 700; color: #000;"
-
         for idx in df_s.index:
             row = df_s.loc[idx]
             if row["ctt_diff"] < 0.20:
@@ -426,7 +427,7 @@ with tab4:
                 styles.loc[idx, "irt_disc"] = flagged
             if row["irt_guess"] > 0.25:
                 styles.loc[idx, "irt_guess"] = flagged
-            if row["alpha_if_removed"] > OVERALL_ALPHA:
+            if row["alpha_if_removed"] > alpha_threshold:
                 styles.loc[idx, "alpha_if_removed"] = flagged
             if row["gain"] < 0:
                 styles.loc[idx, "gain"] = flagged
@@ -454,6 +455,15 @@ with tab4:
         ])
     )
     st.dataframe(styled, use_container_width=True, height=480)
+
+    # ── CSV Download ──────────────────────────────────────────────────────────
+    csv_bytes = table_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="⬇ Download metrics as CSV",
+        data=csv_bytes,
+        file_name="emcs_metrics.csv",
+        mime="text/csv",
+    )
 
     st.markdown("---")
     st.markdown("### Flagged Item Analysis")
@@ -493,3 +503,65 @@ with tab4:
   </p>
 </div>
 """, unsafe_allow_html=True)
+
+# ════════════════════════════════════════════
+# TAB 5 — Item Characteristic Curves (3PL)
+# ════════════════════════════════════════════
+with tab5:
+    st.markdown("### Item Characteristic Curves")
+    st.caption(
+        "3PL logistic model: P(θ) = c + (1−c) / (1 + exp(−a·(θ−b)))  ·  "
+        "Color = item type  ·  Dashed = flagged item"
+    )
+
+    theta = np.linspace(-4, 4, 300)
+
+    fig5 = go.Figure()
+
+    for _, row in df.iterrows():
+        a, b, c = row["irt_disc"], row["irt_diff"], row["irt_guess"]
+        prob  = c + (1 - c) / (1 + np.exp(-a * (theta - b)))
+        color = TYPE_COLORS[row["type"]]
+        dash  = "dash" if row["problematic"] else "solid"
+
+        fig5.add_trace(go.Scatter(
+            x=theta, y=prob,
+            mode="lines",
+            name=row["item"],
+            line=dict(color=color, width=1.8, dash=dash),
+            opacity=0.75,
+            hovertemplate=(
+                f"<b>{row['item']}</b><br>"
+                f"a={a:.2f}, b={b:.2f}, c={c:.2f}<br>"
+                "θ: %{x:.2f}<br>"
+                "P(θ): %{y:.3f}<extra></extra>"
+            ),
+            showlegend=False,
+        ))
+
+    # Type + flagged legend entries
+    for t_key, t_label in TYPE_LABELS.items():
+        fig5.add_trace(go.Scatter(
+            x=[None], y=[None], mode="lines", name=t_label,
+            line=dict(color=TYPE_COLORS[t_key], width=2.5),
+            showlegend=True,
+        ))
+    fig5.add_trace(go.Scatter(
+        x=[None], y=[None], mode="lines", name="Flagged item",
+        line=dict(color="#888", width=2, dash="dash"),
+        showlegend=True,
+    ))
+
+    if show_thresholds:
+        fig5.add_vline(x=0, line=dict(color="#bbb", width=1, dash="dot"))
+        fig5.add_hline(y=0.5, line=dict(color="#bbb", width=1, dash="dot"))
+
+    fig5.update_layout(
+        **LAYOUT_BASE,
+        legend=LEGEND_STYLE,
+        xaxis=dict(title="Ability (θ)", range=[-4, 4]),
+        yaxis=dict(title="Probability of Correct Response P(θ)", range=[0, 1.02]),
+        height=560,
+    )
+    clean_axes(fig5)
+    st.plotly_chart(fig5, use_container_width=True)
