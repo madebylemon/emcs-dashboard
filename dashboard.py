@@ -114,8 +114,18 @@ with st.sidebar:
         value=0.7563, step=0.0001, format="%.4f",
     )
 
-# ─── Filter ───────────────────────────────────────────────────────────────────
-df = df_full[df_full["type_label"].isin(selected_types)].copy()
+# ─── Filter + Editable Session State ────────────────────────────────────────
+_filter_key = tuple(sorted(selected_types))
+_base_df = df_full[df_full["type_label"].isin(selected_types)].copy()
+
+# Reset editable data when the type filter changes
+if ("edited_df" not in st.session_state
+        or st.session_state.get("filter_key") != _filter_key):
+    st.session_state.edited_df = _base_df.copy()
+    st.session_state.filter_key = _filter_key
+
+# All charts use the editable df so edits propagate automatically
+df = st.session_state.edited_df
 
 # ─── Header ───────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -403,67 +413,67 @@ with tab3:
 # ════════════════════════════════════════════
 with tab4:
     st.markdown("### Full Psychometric Metrics")
-    st.caption("Cells highlighted where values breach thresholds")
+    st.caption("Click any numeric cell to edit it — all charts update automatically on change")
 
-    display_cols = [
+    edit_cols = [
         "item", "type", "pre_test", "post_test", "gain",
         "ctt_diff", "ctt_disc", "point_biserial",
         "irt_diff", "irt_disc", "irt_guess", "alpha_if_removed",
     ]
-    table_df = df[display_cols].copy()
 
-    def style_table(df_s):
-        styles = pd.DataFrame("", index=df_s.index, columns=df_s.columns)
-        flagged = "background-color: #eeeeee; font-weight: 700; color: #000;"
-        for idx in df_s.index:
-            row = df_s.loc[idx]
-            if row["ctt_diff"] < 0.20:
-                styles.loc[idx, "ctt_diff"] = flagged
-            if row["ctt_disc"] < 0.20:
-                styles.loc[idx, "ctt_disc"] = flagged
-            if row["point_biserial"] < 0.20:
-                styles.loc[idx, "point_biserial"] = flagged
-            if not (0.50 <= row["irt_disc"] <= 2.50):
-                styles.loc[idx, "irt_disc"] = flagged
-            if row["irt_guess"] > 0.25:
-                styles.loc[idx, "irt_guess"] = flagged
-            if row["alpha_if_removed"] > alpha_threshold:
-                styles.loc[idx, "alpha_if_removed"] = flagged
-            if row["gain"] < 0:
-                styles.loc[idx, "gain"] = flagged
-        return styles
-
-    styled = (
-        table_df.style
-        .apply(style_table, axis=None)
-        .format({
-            "pre_test": "{:.3f}", "post_test": "{:.3f}", "gain": "{:.3f}",
-            "ctt_diff": "{:.3f}", "ctt_disc": "{:.3f}", "point_biserial": "{:.3f}",
-            "irt_diff": "{:.3f}", "irt_disc": "{:.3f}", "irt_guess": "{:.3f}",
-            "alpha_if_removed": "{:.4f}",
-        })
-        .set_properties(**{"background-color": "#fff", "color": "#111", "border": "1px solid #e0e0e0"})
-        .set_table_styles([
-            {"selector": "th", "props": [
-                ("background-color", "#f0f0f0"), ("color", "#111"),
-                ("font-size", "11px"), ("text-transform", "uppercase"),
-                ("border", "1px solid #ddd"), ("padding", "8px 10px"),
-            ]},
-            {"selector": "td", "props": [
-                ("padding", "5px 10px"), ("font-size", "12px"),
-            ]},
-        ])
+    edited = st.data_editor(
+        st.session_state.edited_df[edit_cols].reset_index(drop=True),
+        use_container_width=True,
+        height=500,
+        num_rows="fixed",
+        disabled=["item", "type"],
+        column_config={
+            "item":             st.column_config.TextColumn("Item", disabled=True),
+            "type":             st.column_config.TextColumn("Type", disabled=True),
+            "pre_test":         st.column_config.NumberColumn("Pre-Test",            format="%.3f", min_value=0.0, max_value=1.0),
+            "post_test":        st.column_config.NumberColumn("Post-Test",           format="%.3f", min_value=0.0, max_value=1.0),
+            "gain":             st.column_config.NumberColumn("Norm. Gain",          format="%.3f", min_value=-1.0, max_value=1.0),
+            "ctt_diff":         st.column_config.NumberColumn("CTT Difficulty",      format="%.3f", min_value=0.0, max_value=1.0),
+            "ctt_disc":         st.column_config.NumberColumn("CTT Discrimination",  format="%.3f"),
+            "point_biserial":   st.column_config.NumberColumn("Point-Biserial",      format="%.3f"),
+            "irt_diff":         st.column_config.NumberColumn("IRT Difficulty (b)",  format="%.3f"),
+            "irt_disc":         st.column_config.NumberColumn("IRT Discrimination (a)", format="%.3f", min_value=0.0),
+            "irt_guess":        st.column_config.NumberColumn("IRT Guessing (c)",    format="%.3f", min_value=0.0, max_value=1.0),
+            "alpha_if_removed": st.column_config.NumberColumn("Alpha if Removed",    format="%.4f"),
+        },
+        key="metrics_editor",
     )
-    st.dataframe(styled, use_container_width=True, height=480)
 
-    # ── CSV Download ──────────────────────────────────────────────────────────
-    csv_bytes = table_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="⬇ Download metrics as CSV",
-        data=csv_bytes,
-        file_name="emcs_metrics.csv",
-        mime="text/csv",
+    # ── Sync edits back to session state ─────────────────────────────────────
+    numeric_cols = [c for c in edit_cols if c not in ("item", "type")]
+    for col in numeric_cols:
+        st.session_state.edited_df[col] = edited[col].values
+
+    # Recompute 'problematic' flag from current thresholds
+    s = st.session_state.edited_df
+    s["problematic"] = (
+        (s["ctt_diff"]       < 0.20) |
+        (s["ctt_disc"]       < 0.20) |
+        (s["point_biserial"] < 0.20) |
+        (~s["irt_disc"].between(0.50, 2.50)) |
+        (s["irt_guess"]      > 0.25) |
+        (s["alpha_if_removed"] > alpha_threshold)
     )
+
+    # ── Buttons row ───────────────────────────────────────────────────────────
+    col_dl, col_reset = st.columns([3, 1])
+    with col_dl:
+        csv_bytes = edited.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="⬇ Download current table as CSV",
+            data=csv_bytes,
+            file_name="emcs_metrics.csv",
+            mime="text/csv",
+        )
+    with col_reset:
+        if st.button("↺ Reset to original data"):
+            st.session_state.edited_df = _base_df.copy()
+            st.rerun()
 
     st.markdown("---")
     st.markdown("### Flagged Item Analysis")
