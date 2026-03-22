@@ -520,58 +520,120 @@ with tab4:
 with tab5:
     st.markdown("### Item Characteristic Curves")
     st.caption(
-        "3PL logistic model: P(θ) = c + (1−c) / (1 + exp(−a·(θ−b)))  ·  "
-        "Color = item type  ·  Dashed = flagged item"
+        "3PL model: P(θ) = c + (1−c) / (1 + exp(−a·(θ−b)))  ·  "
+        "Color = item type  ·  Red dashed border = flagged item"
     )
 
-    theta = np.linspace(-4, 4, 300)
+    theta = np.linspace(-3, 3, 200)
+    items = df.reset_index(drop=True)
 
-    fig5 = go.Figure()
+    NCOLS, NROWS = 5, 5
+    subplot_titles = [row["item"] for _, row in items.iterrows()]
 
-    for _, row in df.iterrows():
+    fig5 = make_subplots(
+        rows=NROWS, cols=NCOLS,
+        subplot_titles=subplot_titles,
+        shared_xaxes=False,
+        shared_yaxes=False,
+        horizontal_spacing=0.055,
+        vertical_spacing=0.09,
+    )
+
+    for idx, (_, row) in enumerate(items.iterrows()):
+        r     = idx // NCOLS + 1
+        c_col = idx  % NCOLS + 1
         a, b, c = row["irt_disc"], row["irt_diff"], row["irt_guess"]
         prob  = c + (1 - c) / (1 + np.exp(-a * (theta - b)))
         color = TYPE_COLORS[row["type"]]
-        dash  = "dash" if row["problematic"] else "solid"
+        ax_idx = "" if idx == 0 else str(idx + 1)
 
+        # ICC curve
         fig5.add_trace(go.Scatter(
             x=theta, y=prob,
             mode="lines",
-            name=row["item"],
-            line=dict(color=color, width=1.8, dash=dash),
-            opacity=0.75,
+            line=dict(color=color, width=2),
+            showlegend=False,
             hovertemplate=(
                 f"<b>{row['item']}</b><br>"
                 f"a={a:.2f}, b={b:.2f}, c={c:.2f}<br>"
-                "θ: %{x:.2f}<br>"
-                "P(θ): %{y:.3f}<extra></extra>"
+                "θ: %{x:.2f}<br>P(θ): %{y:.3f}<extra></extra>"
             ),
-            showlegend=False,
-        ))
+        ), row=r, col=c_col)
 
-    # Type + flagged legend entries
-    for t_key, t_label in TYPE_LABELS.items():
-        fig5.add_trace(go.Scatter(
-            x=[None], y=[None], mode="lines", name=t_label,
-            line=dict(color=TYPE_COLORS[t_key], width=2.5),
-            showlegend=True,
-        ))
-    fig5.add_trace(go.Scatter(
-        x=[None], y=[None], mode="lines", name="Flagged item",
-        line=dict(color="#888", width=2, dash="dash"),
-        showlegend=True,
-    ))
+        # a / b / c parameter label inside panel (bottom-right)
+        fig5.add_annotation(
+            xref=f"x{ax_idx}", yref=f"y{ax_idx}",
+            x=2.6, y=0.08,
+            text=f"a={a:.2f}<br>b={b:.2f}<br>c={c:.2f}",
+            showarrow=False, align="right",
+            font=dict(size=7.5, color=color),
+            bgcolor="rgba(255,255,255,0.80)",
+        )
 
-    if show_thresholds:
-        fig5.add_vline(x=0, line=dict(color="#bbb", width=1, dash="dot"))
-        fig5.add_hline(y=0.5, line=dict(color="#bbb", width=1, dash="dot"))
+        # Flagged items: red dashed border
+        if row["problematic"] and show_problematic:
+            fig5.add_shape(
+                type="rect",
+                xref=f"x{ax_idx}", yref=f"y{ax_idx}",
+                x0=-3, x1=3, y0=0, y1=1,
+                line=dict(color="#e74c3c", width=1.5, dash="dash"),
+                fillcolor="rgba(0,0,0,0)", layer="above",
+            )
+
+        # Dotted reference lines (θ=0 and P=0.5)
+        if show_thresholds:
+            fig5.add_shape(type="line",
+                xref=f"x{ax_idx}", yref=f"y{ax_idx}",
+                x0=-3, x1=3, y0=0.5, y1=0.5,
+                line=dict(color="#ddd", width=0.8, dash="dot"), layer="below")
+            fig5.add_shape(type="line",
+                xref=f"x{ax_idx}", yref=f"y{ax_idx}",
+                x0=0, x1=0, y0=0, y1=1,
+                line=dict(color="#ddd", width=0.8, dash="dot"), layer="below")
+
+    # Apply uniform axis styling to all 25 panels
+    for idx in range(NROWS * NCOLS):
+        r     = idx // NCOLS + 1
+        c_col = idx  % NCOLS + 1
+        ax_idx = "" if idx == 0 else str(idx + 1)
+        fig5.update_layout(**{
+            f"xaxis{ax_idx}": dict(
+                range=[-3, 3], showgrid=True, gridcolor=GRID_CLR,
+                linecolor="#ccc", tickfont=dict(size=6.5),
+                zeroline=False,
+                title_text="θ" if r == NROWS else "",
+                title_font=dict(size=8, color=AXIS_CLR),
+                dtick=1,
+            ),
+            f"yaxis{ax_idx}": dict(
+                range=[0, 1], showgrid=True, gridcolor=GRID_CLR,
+                linecolor="#ccc", tickfont=dict(size=6.5),
+                zeroline=False,
+                title_text="P(θ)" if c_col == 1 else "",
+                title_font=dict(size=8, color=AXIS_CLR),
+                dtick=0.5,
+            ),
+        })
+
+    # Subplot title styling (set via annotations produced by make_subplots)
+    for ann in fig5.layout.annotations:
+        ann.font.size  = 10
+        ann.font.color = "#111111"
 
     fig5.update_layout(
-        **LAYOUT_BASE,
-        legend=LEGEND_STYLE,
-        xaxis=dict(title="Ability (θ)", range=[-4, 4]),
-        yaxis=dict(title="Probability of Correct Response P(θ)", range=[0, 1.02]),
-        height=560,
+        paper_bgcolor=PAPER_BG, plot_bgcolor=PLOT_BG,
+        font=dict(color=AXIS_CLR, size=9),
+        height=950,
+        margin=dict(l=45, r=15, t=55, b=40),
+        showlegend=False,
     )
-    clean_axes(fig5)
+
+    # Manual color legend below chart
+    legend_html = "&nbsp;&nbsp;".join(
+        f'<span style="color:{TYPE_COLORS[k]};font-weight:700">■ {v}</span>'
+        for k, v in TYPE_LABELS.items()
+    )
+    legend_html += '&nbsp;&nbsp;&nbsp;<span style="color:#e74c3c;font-weight:700">⬚ Flagged item</span>'
+    st.markdown(legend_html, unsafe_allow_html=True)
+
     st.plotly_chart(fig5, use_container_width=True)
