@@ -114,6 +114,42 @@ with st.sidebar:
         value=0.7563, step=0.0001, format="%.4f",
     )
 
+    st.markdown("---")
+    with st.expander("📖 Metric Glossary"):
+        st.markdown("""
+**Avg Pre-Test**  
+Mean proportion correct across all items *before* instruction.  
+Computed as the average of each item's pre-test p-value (% students correct).
+
+**Avg Post-Test**  
+Mean proportion correct across all items *after* instruction.
+
+**Avg Normalized Gain (g)**  
+Measures learning efficiency relative to potential improvement:
+> *g = (post − pre) / (1 − pre)*  
+
+- g ≈ 0.7 → high gain · g ≈ 0.3 → medium · g < 0 → students scored worse
+
+**CTT Difficulty (p-value)**  
+Proportion of students who answered correctly. Higher = easier item.
+
+**CTT Discrimination**  
+Correlation between item score and total test score. Higher = item better separates high/low performers.
+
+**Point-Biserial**  
+Pearson correlation of a binary item score with the continuous total score.
+
+**IRT Parameters (3PL model)**  
+- *a* — Discrimination: steepness of the ICC curve  
+- *b* — Difficulty: θ at which P(correct) = 0.5  
+- *c* — Guessing: lower asymptote (chance-level probability)
+
+**Alpha if Removed**  
+Cronbach's α of the scale if this item were deleted. Values above the overall α indicate the item reduces reliability.
+
+**Color coding:** 🔵 Energy &nbsp; 🔴 Momentum &nbsp; 🟣 Energy & Momentum
+""")
+
 # ─── Filter + Editable Session State ────────────────────────────────────────
 _filter_key = tuple(sorted(selected_types))
 _base_df = df_full[df_full["type_label"].isin(selected_types)].copy()
@@ -147,22 +183,27 @@ st.markdown(f"""
   <div class="kpi-card">
     <div class="kpi-label">Avg Pre-Test</div>
     <div class="kpi-value">{avg_pre:.2f}</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">mean item p-value before instruction</div>
   </div>
   <div class="kpi-card">
     <div class="kpi-label">Avg Post-Test</div>
     <div class="kpi-value">{avg_post:.2f}</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">mean item p-value after instruction</div>
   </div>
   <div class="kpi-card">
     <div class="kpi-label">Avg Norm. Gain</div>
     <div class="kpi-value">{avg_gain:.2f}</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">g = (post−pre)/(1−pre)</div>
   </div>
   <div class="kpi-card">
     <div class="kpi-label">Problematic Items</div>
     <div class="kpi-value {'warn' if n_prob > 0 else ''}">{n_prob}</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">items breaching ≥1 threshold</div>
   </div>
   <div class="kpi-card">
     <div class="kpi-label">Negative Gain Items</div>
     <div class="kpi-value {'warn' if n_neg_gain > 0 else ''}">{n_neg_gain}</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">post-test score below pre-test</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -191,12 +232,13 @@ def clean_axes(fig, rows=1):
 LEGEND_STYLE = dict(bgcolor="#fff", bordercolor="#ddd", borderwidth=1, font=dict(color="#111111"))
 
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Tab 1 — Discrimination vs Difficulty",
     "Tab 2 — Pre/Post & Gain",
     "Tab 3 — IRT Scatter",
     "Tab 4 — Full Metrics Table",
     "Tab 5 — Item Characteristic Curves",
+    "Tab 6 — Item Category Analysis",
 ])
 
 # ════════════════════════════════════════════
@@ -637,3 +679,130 @@ with tab5:
     st.markdown(legend_html, unsafe_allow_html=True)
 
     st.plotly_chart(fig5, use_container_width=True)
+
+# ════════════════════════════════════════════
+# TAB 6 — Item Analysis by Category
+# ════════════════════════════════════════════
+with tab6:
+    st.markdown("### Item Analysis by Category")
+    st.caption("Compare item performance across Energy, Momentum, and Energy & Momentum question types")
+
+    # ── Panel A: Grouped avg pre / post / gain by type ───────────────────────
+    st.markdown("#### Average Scores by Item Type")
+
+    type_summary = (
+        df.groupby("type_label")[["pre_test", "post_test", "gain"]]
+        .mean()
+        .reset_index()
+        .rename(columns={"type_label": "Type", "pre_test": "Pre-Test",
+                         "post_test": "Post-Test", "gain": "Norm. Gain"})
+    )
+    # Preserve display order
+    order = [TYPE_LABELS[k] for k in TYPE_LABELS if TYPE_LABELS[k] in type_summary["Type"].values]
+    type_summary["Type"] = pd.Categorical(type_summary["Type"], categories=order, ordered=True)
+    type_summary = type_summary.sort_values("Type")
+
+    fig6a = go.Figure()
+    bar_colors = {TYPE_LABELS[k]: TYPE_COLORS[k] for k in TYPE_LABELS}
+    light_colors = {TYPE_LABELS[k]: TYPE_COLORS_LIGHT[k] for k in TYPE_LABELS}
+
+    for _, row in type_summary.iterrows():
+        t = row["Type"]
+        clr = bar_colors.get(t, "#888")
+        lclr = light_colors.get(t, "rgba(136,136,136,0.35)")
+        fig6a.add_trace(go.Bar(
+            name=f"{t} — Pre",  x=[t], y=[row["Pre-Test"]],
+            marker_color=lclr, showlegend=True,
+            hovertemplate=f"<b>{t}</b><br>Pre-Test: {row['Pre-Test']:.3f}<extra></extra>",
+        ))
+        fig6a.add_trace(go.Bar(
+            name=f"{t} — Post", x=[t], y=[row["Post-Test"]],
+            marker_color=clr, showlegend=True,
+            hovertemplate=f"<b>{t}</b><br>Post-Test: {row['Post-Test']:.3f}<extra></extra>",
+        ))
+        fig6a.add_trace(go.Scatter(
+            name=f"{t} — Gain", x=[t], y=[row["Norm. Gain"]],
+            mode="markers",
+            marker=dict(color=clr, size=14, symbol="diamond",
+                        line=dict(color="#fff", width=2)),
+            yaxis="y2", showlegend=True,
+            hovertemplate=f"<b>{t}</b><br>Norm. Gain: {row['Norm. Gain']:.3f}<extra></extra>",
+        ))
+
+    fig6a.update_layout(
+        **LAYOUT_BASE,
+        barmode="group",
+        legend=LEGEND_STYLE,
+        height=420,
+        xaxis=dict(title="Item Type"),
+        yaxis=dict(title="Proportion Correct", range=[0, 1.05],
+                   showgrid=True, gridcolor=GRID_CLR),
+        yaxis2=dict(title="Normalized Gain", overlaying="y", side="right",
+                    range=[-0.2, 0.7], showgrid=False),
+    )
+    st.plotly_chart(fig6a, use_container_width=True)
+
+    # ── Panel B: Pre vs Post scatter per item, labeled and colored by type ───
+    st.markdown("#### Pre-Test vs Post-Test per Item (colored by type)")
+    st.caption("Each point = one question · Diagonal = no change line · Above diagonal = learning gain")
+
+    fig6b = go.Figure()
+
+    # No-change diagonal
+    fig6b.add_shape(type="line", x0=0, x1=1, y0=0, y1=1,
+                    line=dict(color="#ccc", width=1, dash="dot"), layer="below")
+
+    for t_key, t_label in TYPE_LABELS.items():
+        sub = df[df["type"] == t_key]
+        if sub.empty:
+            continue
+        fig6b.add_trace(go.Scatter(
+            x=sub["pre_test"], y=sub["post_test"],
+            mode="markers+text",
+            name=t_label,
+            text=sub["item"],
+            textposition="top center",
+            textfont=dict(size=9, color=TYPE_COLORS[t_key]),
+            marker=dict(
+                size=11, color=TYPE_COLORS[t_key], opacity=0.85,
+                line=dict(
+                    color=[FLAG_CLR if p else TYPE_COLORS[t_key] for p in sub["problematic"]],
+                    width=[3 if p else 1 for p in sub["problematic"]],
+                ),
+            ),
+            customdata=sub[["gain", "type_label"]].values,
+            hovertemplate=(
+                "<b>%{text}</b><br>"
+                "Pre-Test: %{x:.3f}<br>"
+                "Post-Test: %{y:.3f}<br>"
+                "Norm. Gain: %{customdata[0]:.3f}<br>"
+                "Type: %{customdata[1]}<extra></extra>"
+            ),
+        ))
+
+    fig6b.update_layout(
+        **LAYOUT_BASE,
+        legend=LEGEND_STYLE,
+        height=520,
+        xaxis=dict(title="Pre-Test (proportion correct)", range=[-0.02, 1.02],
+                   showgrid=True, gridcolor=GRID_CLR, linecolor="#aaa"),
+        yaxis=dict(title="Post-Test (proportion correct)", range=[-0.02, 1.02],
+                   showgrid=True, gridcolor=GRID_CLR, linecolor="#aaa"),
+    )
+    st.plotly_chart(fig6b, use_container_width=True)
+
+    # ── Note on unavailable analyses ─────────────────────────────────────────
+    st.markdown("---")
+    with st.expander("ℹ️ Analyses requiring raw student data (not currently available)"):
+        st.markdown("""
+The following analyses would significantly enhance this dashboard but require **individual student response data** beyond the item-level summary in `emcs_data.csv`:
+
+| Analysis | What's needed |
+|---|---|
+| **Student-level distributions** (histograms, boxplots) | Per-student scores on each item |
+| **Demographic filters** (gender, year in course) | Student metadata linked to responses |
+| **Exploratory Factor Analysis (EFA)** | Full inter-item correlation matrix from raw responses |
+| **Reliability interval estimates** | Bootstrap resampling from raw data |
+
+If raw anonymized response data is made available, these sections can be activated automatically.
+""")
