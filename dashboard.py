@@ -468,37 +468,56 @@ with tab4:
     st.markdown("### Full Psychometric Metrics")
 
     # ── CSV Upload: auto-loads into all charts ──────────────────────────────
-    with st.expander("⬆️ Upload CSV to replace data (all charts update automatically)"):
+    with st.expander("\u2b06\ufe0f Upload CSV to replace data (all charts update automatically)"):
         uploaded_csv = st.file_uploader(
             "Upload a metrics CSV (must have columns: item, type, pre_test, post_test, gain, "
             "ctt_diff, ctt_disc, point_biserial, irt_diff, irt_disc, irt_guess, alpha_if_removed)",
             type=["csv"], key="tab4_csv_upload",
         )
         if uploaded_csv is not None:
-            try:
-                new_df = pd.read_csv(uploaded_csv)
-                required_cols = ["item", "type", "pre_test", "post_test", "gain",
-                                  "ctt_diff", "ctt_disc", "point_biserial",
-                                  "irt_diff", "irt_disc", "irt_guess", "alpha_if_removed"]
-                missing = [c for c in required_cols if c not in new_df.columns]
-                if missing:
-                    st.error(f"❌ CSV is missing columns: {missing}")
-                else:
-                    new_df["type_label"] = new_df["type"].map(TYPE_LABELS)
-                    new_df["problematic"] = (
-                        (new_df["ctt_diff"]         < 0.20) |
-                        (new_df["ctt_disc"]         < 0.20) |
-                        (new_df["point_biserial"]   < 0.20) |
-                        (~new_df["irt_disc"].between(0.50, 2.50)) |
-                        (new_df["irt_guess"]        > 0.25) |
-                        (new_df["alpha_if_removed"] > alpha_threshold)
-                    )
-                    st.session_state.edited_df = new_df.reset_index(drop=True)
-                    st.session_state.filter_key = None   # force session reset on next run
-                    st.success(f"✅ Loaded {len(new_df)} items — all charts updated!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Error reading CSV: {e}")
+            # Unique ID for this specific file — prevents reprocessing on every rerun
+            # (st.file_uploader keeps the file selected across reruns, which would
+            #  cause an infinite rerun loop if we called st.rerun() unconditionally)
+            _file_id = f"{uploaded_csv.name}_{uploaded_csv.size}"
+
+            if st.session_state.get("tab4_last_csv_id") != _file_id:
+                # First time seeing this file: parse and load it
+                try:
+                    new_df = pd.read_csv(uploaded_csv)
+                    required_cols = ["item", "type", "pre_test", "post_test", "gain",
+                                      "ctt_diff", "ctt_disc", "point_biserial",
+                                      "irt_diff", "irt_disc", "irt_guess", "alpha_if_removed"]
+                    missing = [c for c in required_cols if c not in new_df.columns]
+                    if missing:
+                        st.error(f"\u274c CSV is missing columns: {missing}")
+                    else:
+                        new_df["type_label"] = new_df["type"].map(TYPE_LABELS)
+                        new_df["problematic"] = (
+                            (new_df["ctt_diff"]         < 0.20) |
+                            (new_df["ctt_disc"]         < 0.20) |
+                            (new_df["point_biserial"]   < 0.20) |
+                            (~new_df["irt_disc"].between(0.50, 2.50)) |
+                            (new_df["irt_guess"]        > 0.25) |
+                            (new_df["alpha_if_removed"] > alpha_threshold)
+                        )
+                        st.session_state.edited_df        = new_df.reset_index(drop=True)
+                        # Use the CURRENT filter key so the top-of-script guard does NOT
+                        # reset edited_df back to the baseline on the next rerun
+                        st.session_state.filter_key       = _filter_key
+                        st.session_state.tab4_last_csv_id = _file_id
+                        # One clean rerun to redraw all charts with the new data
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error reading CSV: {e}")
+            else:
+                # File already processed — show stable confirmation, no rerun needed
+                st.success(
+                    f"\u2705 **{uploaded_csv.name}** is loaded \u2014 "
+                    f"{len(st.session_state.edited_df)} items active. "
+                    "All charts reflect this data."
+                )
+
+
 
     st.caption("Click any numeric cell to edit it — all charts update automatically on change")
 
