@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from scipy.stats import pointbiserialr
 
 # ─── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -241,13 +242,14 @@ def clean_axes(fig, rows=1):
 LEGEND_STYLE = dict(bgcolor="#fff", bordercolor="#ddd", borderwidth=1, font=dict(color="#111111"))
 
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Tab 1 — Discrimination vs Difficulty",
     "Tab 2 — Pre/Post & Gain",
     "Tab 3 — IRT Scatter",
     "Tab 4 — Full Metrics Table",
     "Tab 5 — Item Characteristic Curves",
     "Tab 6 — Item Category Analysis",
+    "Tab 7 — Compute from Raw Data",
 ])
 
 # ════════════════════════════════════════════
@@ -464,6 +466,40 @@ with tab3:
 # ════════════════════════════════════════════
 with tab4:
     st.markdown("### Full Psychometric Metrics")
+
+    # ── CSV Upload: auto-loads into all charts ──────────────────────────────
+    with st.expander("⬆️ Upload CSV to replace data (all charts update automatically)"):
+        uploaded_csv = st.file_uploader(
+            "Upload a metrics CSV (must have columns: item, type, pre_test, post_test, gain, "
+            "ctt_diff, ctt_disc, point_biserial, irt_diff, irt_disc, irt_guess, alpha_if_removed)",
+            type=["csv"], key="tab4_csv_upload",
+        )
+        if uploaded_csv is not None:
+            try:
+                new_df = pd.read_csv(uploaded_csv)
+                required_cols = ["item", "type", "pre_test", "post_test", "gain",
+                                  "ctt_diff", "ctt_disc", "point_biserial",
+                                  "irt_diff", "irt_disc", "irt_guess", "alpha_if_removed"]
+                missing = [c for c in required_cols if c not in new_df.columns]
+                if missing:
+                    st.error(f"❌ CSV is missing columns: {missing}")
+                else:
+                    new_df["type_label"] = new_df["type"].map(TYPE_LABELS)
+                    new_df["problematic"] = (
+                        (new_df["ctt_diff"]         < 0.20) |
+                        (new_df["ctt_disc"]         < 0.20) |
+                        (new_df["point_biserial"]   < 0.20) |
+                        (~new_df["irt_disc"].between(0.50, 2.50)) |
+                        (new_df["irt_guess"]        > 0.25) |
+                        (new_df["alpha_if_removed"] > alpha_threshold)
+                    )
+                    st.session_state.edited_df = new_df.reset_index(drop=True)
+                    st.session_state.filter_key = None   # force session reset on next run
+                    st.success(f"✅ Loaded {len(new_df)} items — all charts updated!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Error reading CSV: {e}")
+
     st.caption("Click any numeric cell to edit it — all charts update automatically on change")
 
     edit_cols = [
@@ -815,3 +851,139 @@ The following analyses would significantly enhance this dashboard but require **
 
 If raw anonymized response data is made available, these sections can be activated automatically.
 """)
+
+# ════════════════════════════════════════════
+# TAB 7 — Compute Metrics from Raw xlsx
+# ════════════════════════════════════════════
+with tab7:
+    st.markdown("### Compute Psychometric Metrics from Raw Response File")
+    st.caption(
+        "Upload a student response xlsx (columns: file_name, CODE, Q01–Q25). "
+        "The system scores responses, computes all CTT / IRT metrics, and lets you "
+        "download the result as a CSV to import into Tab 4."
+    )
+
+    # ── Answer Key (hardcoded, shown for transparency) ──────────────────────
+    ANSWER_KEY_T7 = {
+        "Q01":"b","Q02":"e","Q03":"b","Q04":"a","Q05":"d",
+        "Q06":"c","Q07":"e","Q08":"c","Q09":"a","Q10":"d",
+        "Q11":"e","Q12":"d","Q13":"c","Q14":"d","Q15":"a",
+        "Q16":"c","Q17":"b","Q18":"e","Q19":"b","Q20":"a",
+        "Q21":"c","Q22":"d","Q23":"b","Q24":"a","Q25":"e",
+    }
+    with st.expander("🔑 Answer Key (click to view)"):
+        ak_df = pd.DataFrame([ANSWER_KEY_T7])
+        st.dataframe(ak_df, use_container_width=True, hide_index=True)
+
+    # ── File Upload ────────────────────────────────────────────────────────────
+    uploaded_raw = st.file_uploader(
+        "Upload student response file (.xlsx)",
+        type=["xlsx"], key="tab7_upload",
+    )
+
+    if uploaded_raw is not None:
+        with st.spinner("Scoring responses and computing psychometric metrics… (may take 30–60 s for IRT)"):
+            try:
+                import io
+                Q_COLS_T7 = [f"Q{i:02d}" for i in range(1, 26)]
+
+                raw = pd.read_excel(io.BytesIO(uploaded_raw.read()))
+
+                # Score responses
+                scored = raw.copy()
+                for q in Q_COLS_T7:
+                    scored[q] = raw[q].astype(str).str.strip().str.lower().map(
+                        lambda x, k=ANSWER_KEY_T7[q]: 1.0 if x == k else (np.nan if x in ("nan", "") else 0.0)
+                    )
+
+                pre_s  = scored[scored["file_name"].str.contains("PRE",  case=False)].copy()
+                post_s = scored[scored["file_name"].str.contains("POST", case=False)].copy()
+
+                pre_diff  = pre_s[Q_COLS_T7].mean()
+                post_diff = post_s[Q_COLS_T7].mean()
+                gain_s    = (post_diff - pre_diff) / (1 - pre_diff)
+
+                # CTT Discrimination (upper 27% − lower 27%)
+                def _ctt_disc(sdf):
+                    total = sdf[Q_COLS_T7].sum(axis=1)
+                    cut = int(0.27 * len(sdf))
+                    ui = total.nlargest(cut).index
+                    li = total.nsmallest(cut).index
+                    return pd.Series({q: sdf.loc[ui, q].mean() - sdf.loc[li, q].mean() for q in Q_COLS_T7})
+
+                ctt_disc_s = _ctt_disc(pre_s)
+
+                # Point-biserial
+                pre_total = pre_s[Q_COLS_T7].sum(axis=1)
+                pb_s = {}
+                for q in Q_COLS_T7:
+                    rest = pre_total - pre_s[q].fillna(0)
+                    mask = pre_s[q].notna()
+                    r, _ = pointbiserialr(pre_s.loc[mask, q], rest[mask])
+                    pb_s[q] = r
+                pb_series = pd.Series(pb_s)
+
+                # Cronbach’s alpha + alpha-if-removed
+                def _alpha(dfi):
+                    dfi = dfi.dropna()
+                    n = dfi.shape[1]
+                    return (n / (n - 1)) * (1 - dfi.var(ddof=1).sum() / dfi.sum(axis=1).var(ddof=1))
+
+                air = pd.Series({q: _alpha(pre_s[[c for c in Q_COLS_T7 if c != q]]) for q in Q_COLS_T7})
+
+                # IRT 3PL via girth
+                irt_a = pd.Series(np.nan, index=Q_COLS_T7)
+                irt_b = pd.Series(np.nan, index=Q_COLS_T7)
+                irt_c = pd.Series(np.nan, index=Q_COLS_T7)
+                try:
+                    from girth import threepl_mml
+                    pre_complete = pre_s[Q_COLS_T7].dropna()
+                    res = threepl_mml(pre_complete.values.T.astype(int))
+                    irt_a = pd.Series(res["Discrimination"], index=Q_COLS_T7)
+                    irt_b = pd.Series(res["Difficulty"],     index=Q_COLS_T7)
+                    irt_c = pd.Series(res["Guessing"],       index=Q_COLS_T7)
+                except Exception as irt_err:
+                    st.warning(f"⚠️ IRT estimation skipped: {irt_err}. Columns will be NaN.")
+
+                # Keep existing item type mapping
+                existing_types = dict(zip(df_full["item"], df_full["type"]))
+
+                result_df = pd.DataFrame({
+                    "item":             Q_COLS_T7,
+                    "type":             [existing_types.get(q, "E") for q in Q_COLS_T7],
+                    "pre_test":         pre_diff.values,
+                    "post_test":        post_diff.values,
+                    "gain":             gain_s.values,
+                    "ctt_diff":         pre_diff.values,
+                    "ctt_disc":         ctt_disc_s.values,
+                    "point_biserial":   pb_series.values,
+                    "irt_diff":         irt_b.values,
+                    "irt_disc":         irt_a.values,
+                    "irt_guess":        irt_c.values,
+                    "alpha_if_removed": air.values,
+                }).round(4)
+
+                st.success(
+                    f"✅ Done! Scored {len(pre_s):,} PRE and {len(post_s):,} POST student records "
+                    f"across {raw['file_name'].nunique()} semesters."
+                )
+
+                st.markdown("#### Generated Metrics Table")
+                st.dataframe(result_df, use_container_width=True, hide_index=True)
+
+                # Download button
+                csv_out = result_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label="⬇ Download as CSV (import into Tab 4)",
+                    data=csv_out,
+                    file_name="computed_metrics.csv",
+                    mime="text/csv",
+                )
+
+                st.info(
+                    "💡 To apply this data to all charts, go to **Tab 4**, "
+                    "open the **Upload CSV** section, and upload the downloaded file."
+                )
+
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
