@@ -416,22 +416,28 @@ with tab3:
         sub = df[df["type"] == t_key]
         if sub.empty:
             continue
-        is_prob = sub["problematic"] if show_problematic else pd.Series([False]*len(sub), index=sub.index)
+        # Drop rows where IRT params are NaN (e.g. IRT estimation failed for some items)
+        sub_irt = sub.dropna(subset=["irt_diff", "irt_disc"])
+        if sub_irt.empty:
+            continue
+        is_prob_irt = sub_irt["problematic"] if show_problematic else pd.Series([False]*len(sub_irt), index=sub_irt.index)
+        # Clamp guessing to [0,1] and fill NaN with 0 so marker sizes are always valid
+        marker_sizes = sub_irt["irt_guess"].fillna(0).clip(0, 1) * 80 + 8
         fig3.add_trace(go.Scatter(
-            x=sub["irt_diff"], y=sub["irt_disc"],
+            x=sub_irt["irt_diff"], y=sub_irt["irt_disc"],
             mode="markers",
             name=t_label,
             marker=dict(
-                size=sub["irt_guess"] * 80 + 8,
+                size=marker_sizes.tolist(),
                 color=TYPE_COLORS[t_key],
                 opacity=0.82,
                 line=dict(
-                    color=[FLAG_CLR if p else TYPE_COLORS[t_key] for p in is_prob],
-                    width=[3 if p else 1 for p in is_prob],
+                    color=[FLAG_CLR if p else TYPE_COLORS[t_key] for p in is_prob_irt],
+                    width=[3 if p else 1 for p in is_prob_irt],
                 ),
             ),
-            text=sub["item"],
-            customdata=sub[["irt_guess", "type_label"]].values,
+            text=sub_irt["item"],
+            customdata=sub_irt[["irt_guess", "type_label"]].values,
             hovertemplate=(
                 "<b>%{text}</b><br>"
                 "IRT Difficulty (b): %{x:.3f}<br>"
@@ -440,6 +446,7 @@ with tab3:
                 "Type: %{customdata[1]}<extra></extra>"
             ),
         ))
+
 
     if show_problematic:
         for _, row in df[df["problematic"]].iterrows():
@@ -648,7 +655,9 @@ with tab5:
     for idx, (_, row) in enumerate(items.iterrows()):
         r     = idx // NCOLS + 1
         c_col = idx  % NCOLS + 1
-        a, b, c = row["irt_disc"], row["irt_diff"], row["irt_guess"]
+        a = row["irt_disc"] if pd.notna(row["irt_disc"]) else 1.0
+        b = row["irt_diff"] if pd.notna(row["irt_diff"]) else 0.0
+        c = row["irt_guess"] if pd.notna(row["irt_guess"]) else 0.0
         prob  = c + (1 - c) / (1 + np.exp(-a * (theta - b)))
         color = TYPE_COLORS[row["type"]]
         ax_idx = "" if idx == 0 else str(idx + 1)
