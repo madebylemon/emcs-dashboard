@@ -80,6 +80,15 @@ GAIN_NEG_CLR = "#e74c3c"   # red    — negative gain
 def load_data():
     df = pd.read_csv("emcs_data.csv")
     df["type_label"] = df["type"].map(TYPE_LABELS)
+    # Compute 'problematic' from thresholds so it's never missing even if CSV lacks the column
+    df["problematic"] = (
+        (df["ctt_diff"]         < 0.20) |
+        (df["ctt_disc"]         < 0.20) |
+        (df["point_biserial"]   < 0.20) |
+        (~df["irt_disc"].between(0.50, 2.50)) |
+        (df["irt_guess"]        > 0.25) |
+        (df.get("alpha_if_removed", pd.Series(0, index=df.index)) > 0.7563)
+    )
     return df
 
 df_full = load_data()
