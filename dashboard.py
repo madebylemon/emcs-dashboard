@@ -157,8 +157,47 @@ Pearson correlation of a binary item score with the continuous total score.
 **Alpha if Removed**  
 Cronbach's α of the scale if this item were deleted. Values above the overall α indicate the item reduces reliability.
 
-**Color coding:** 🔵 Energy &nbsp; 🔴 Momentum &nbsp; 🟣 Energy & Momentum
+**Color coding:** 🔵 Energy   🔴 Momentum   🟣 Energy & Momentum
 """)
+
+    st.markdown("---")
+    st.markdown("### 🎨 Plot Settings")
+    FONT_SIZE = st.slider("Font Size", 8, 22, 12,
+        help="Applies to all axis labels, tick marks, and titles")
+    CHART_H = st.slider("Chart Height (px)", 300, 1000, 520, step=20,
+        help="On-screen chart height; width is always full-page")
+
+    _aspect_opts = {
+        "16:9 — Widescreen": 16 / 9,
+        "4:3 — Standard":    4  / 3,
+        "1:1 — Square":      1.0,
+    }
+    _asp_choice = st.selectbox("Export Aspect Ratio", list(_aspect_opts.keys()), index=0)
+    _asp_ratio  = _aspect_opts[_asp_choice]
+
+    _res_opts = {
+        "Screen (72 dpi)": dict(w=1200, scale=1.0),
+        "Presentation (150 dpi, 1600 px)": dict(w=1600, scale=1.5),
+        "Publication / Print (300 dpi, 2400 px)": dict(w=2400, scale=3.0),
+    }
+    _res_choice = st.selectbox("Export Resolution", list(_res_opts.keys()), index=1)
+    _res_cfg    = _res_opts[_res_choice]
+
+    EXPORT_W     = _res_cfg["w"]
+    EXPORT_H     = int(EXPORT_W / _asp_ratio)
+    EXPORT_SCALE = _res_cfg["scale"]
+
+PLOTLY_EXPORT_CONFIG = {
+    "toImageButtonOptions": {
+        "format":   "png",
+        "filename": "emcs_chart",
+        "width":    EXPORT_W,
+        "height":   EXPORT_H,
+        "scale":    EXPORT_SCALE,
+    },
+    "displayModeBar": True,
+    "modeBarButtonsToAdd": ["drawline", "drawopenpath", "eraseshape"],
+}
 
 # ─── Filter + Editable Session State ────────────────────────────────────────
 _filter_key = tuple(sorted(selected_types))
@@ -222,7 +261,7 @@ st.markdown(f"""
 LAYOUT_BASE = dict(
     paper_bgcolor=PAPER_BG,
     plot_bgcolor=PLOT_BG,
-    font=dict(color=AXIS_CLR, size=12),
+    font=dict(color=AXIS_CLR, size=FONT_SIZE),   # ← dynamic from sidebar
     margin=dict(l=60, r=40, t=40, b=60),
 )
 
@@ -234,12 +273,17 @@ def clean_axes(fig, rows=1):
                 fig.layout[ax].update(
                     showgrid=True, gridcolor=GRID_CLR, gridwidth=1,
                     linecolor="#aaa", linewidth=1,
-                    tickcolor="#aaa", tickfont=dict(color=AXIS_CLR),
-                    title_font=dict(color=AXIS_CLR),
+                    tickcolor="#aaa",
+                    tickfont=dict(color=AXIS_CLR, size=FONT_SIZE),   # ← dynamic
+                    title_font=dict(color=AXIS_CLR, size=FONT_SIZE), # ← dynamic
                     zeroline=False,
                 )
 
-LEGEND_STYLE = dict(bgcolor="#fff", bordercolor="#ddd", borderwidth=1, font=dict(color="#111111"))
+LEGEND_STYLE = dict(
+    bgcolor="#fff", bordercolor="#ddd", borderwidth=1,
+    font=dict(color="#111111", size=FONT_SIZE),              # ← dynamic
+)
+
 
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
@@ -317,10 +361,10 @@ with tab1:
         legend=LEGEND_STYLE,
         xaxis=dict(title="CTT Difficulty (p-value)", range=[-0.02, 1.02]),
         yaxis=dict(title="CTT Discrimination", range=[-0.05, 0.70]),
-        height=520,
+        height=CHART_H,
     )
     clean_axes(fig1)
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
 # ════════════════════════════════════════════
 # TAB 2 — Pre/Post + Gain (green/red diamonds)
@@ -383,14 +427,14 @@ with tab2:
         **LAYOUT_BASE,
         barmode="group",
         legend=LEGEND_STYLE,
-        height=510,
+        height=int(CHART_H * 0.98),
         xaxis=dict(tickangle=-45),
     )
     fig2.update_yaxes(title_text="Proportion Correct", secondary_y=False, range=[0, 1.05],
                       showgrid=True, gridcolor=GRID_CLR, linecolor="#aaa")
     fig2.update_yaxes(title_text="Normalized Gain", secondary_y=True, range=[-0.5, 0.7],
                       showgrid=False, linecolor="#aaa")
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
 # ════════════════════════════════════════════
 # TAB 3 — IRT Discrimination vs Difficulty scatter
@@ -463,10 +507,10 @@ with tab3:
         legend=LEGEND_STYLE,
         xaxis=dict(title="IRT Difficulty (b)"),
         yaxis=dict(title="IRT Discrimination (a)", range=[-0.1, 3.2]),
-        height=520,
+        height=CHART_H,
     )
     clean_axes(fig3)
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
 # ════════════════════════════════════════════
 # TAB 4 — Full Table + Download + Flagged Cards
@@ -738,7 +782,7 @@ with tab5:
     fig5.update_layout(
         paper_bgcolor=PAPER_BG, plot_bgcolor=PLOT_BG,
         font=dict(color=AXIS_CLR, size=9),
-        height=950,
+        height=int(CHART_H * 1.83),  # ICC grid is always taller than standard charts
         margin=dict(l=45, r=15, t=55, b=40),
         showlegend=False,
     )
@@ -751,7 +795,7 @@ with tab5:
     legend_html += '&nbsp;&nbsp;&nbsp;<span style="color:#e74c3c;font-weight:700">⬚ Flagged item</span>'
     st.markdown(legend_html, unsafe_allow_html=True)
 
-    st.plotly_chart(fig5, use_container_width=True)
+    st.plotly_chart(fig5, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
 # ════════════════════════════════════════════
 # TAB 6 — Item Analysis by Category
@@ -806,14 +850,14 @@ with tab6:
         **LAYOUT_BASE,
         barmode="group",
         legend=LEGEND_STYLE,
-        height=420,
+        height=int(CHART_H * 0.81),
         xaxis=dict(title="Item Type"),
         yaxis=dict(title="Proportion Correct", range=[0, 1.05],
                    showgrid=True, gridcolor=GRID_CLR),
         yaxis2=dict(title="Normalized Gain", overlaying="y", side="right",
                     range=[-0.2, 0.7], showgrid=False),
     )
-    st.plotly_chart(fig6a, use_container_width=True)
+    st.plotly_chart(fig6a, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
     # ── Panel B: Pre vs Post scatter per item, labeled and colored by type ───
     st.markdown("#### Pre-Test vs Post-Test per Item (colored by type)")
@@ -856,13 +900,13 @@ with tab6:
     fig6b.update_layout(
         **LAYOUT_BASE,
         legend=LEGEND_STYLE,
-        height=520,
+        height=CHART_H,
         xaxis=dict(title="Pre-Test (proportion correct)", range=[-0.02, 1.02],
                    showgrid=True, gridcolor=GRID_CLR, linecolor="#aaa"),
         yaxis=dict(title="Post-Test (proportion correct)", range=[-0.02, 1.02],
                    showgrid=True, gridcolor=GRID_CLR, linecolor="#aaa"),
     )
-    st.plotly_chart(fig6b, use_container_width=True)
+    st.plotly_chart(fig6b, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
     # ── Note on unavailable analyses ─────────────────────────────────────────
     st.markdown("---")
