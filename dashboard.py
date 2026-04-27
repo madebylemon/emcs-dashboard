@@ -187,6 +187,12 @@ Cronbach's α of the scale if this item were deleted. Values above the overall �
     EXPORT_H     = int(EXPORT_W / _asp_ratio)
     EXPORT_SCALE = _res_cfg["scale"]
 
+    st.caption(
+        "📷 To export any chart: hover over it → click the **camera icon** (📷) "
+        "in the top-right toolbar. The PNG will be saved at the resolution and "
+        "aspect ratio chosen above."
+    )
+
 PLOTLY_EXPORT_CONFIG = {
     "toImageButtonOptions": {
         "format":   "png",
@@ -196,7 +202,6 @@ PLOTLY_EXPORT_CONFIG = {
         "scale":    EXPORT_SCALE,
     },
     "displayModeBar": True,
-    "modeBarButtonsToAdd": ["drawline", "drawopenpath", "eraseshape"],
 }
 
 # ─── Filter + Editable Session State ────────────────────────────────────────
@@ -1003,19 +1008,56 @@ with tab7:
 
                 air = pd.Series({q: _alpha(pre_s[[c for c in Q_COLS_T7 if c != q]]) for q in Q_COLS_T7})
 
-                # IRT 3PL via girth
-                irt_a = pd.Series(np.nan, index=Q_COLS_T7)
-                irt_b = pd.Series(np.nan, index=Q_COLS_T7)
-                irt_c = pd.Series(np.nan, index=Q_COLS_T7)
-                try:
-                    from girth import threepl_mml
-                    pre_complete = pre_s[Q_COLS_T7].dropna()
-                    res = threepl_mml(pre_complete.values.T.astype(int))
-                    irt_a = pd.Series(res["Discrimination"], index=Q_COLS_T7)
-                    irt_b = pd.Series(res["Difficulty"],     index=Q_COLS_T7)
-                    irt_c = pd.Series(res["Guessing"],       index=Q_COLS_T7)
-                except Exception as irt_err:
-                    st.warning(f"⚠️ IRT estimation skipped: {irt_err}. Columns will be NaN.")
+                # ── IRT 3PL — self-contained MML via scipy (no girth dependency) ──
+                # Uses marginal maximum likelihood with Gauss-Hermite quadrature.
+                # Fits each item independently; vectorised over persons for speed.
+                from numpy.polynomial.hermite import hermgauss
+                from scipy.optimize import minimize
+                from scipy.special import expit
+
+                _n_quad = 20
+                _pts, _wts = hermgauss(_n_quad)
+                _theta = _pts * np.sqrt(2)          # rescale to N(0,1)
+                _wts_n = _wts / _wts.sum()          # normalised weights
+
+                def _fit_3pl_item(y_series):
+                    """MML 3PL for one item. Returns (a, b, c)."""
+                    y = y_series.dropna().values.astype(np.float64)
+                    if len(y) < 10:
+                        return np.nan, np.nan, np.nan
+                    p_hat = y.mean()
+                    b0 = float(np.log(max(1 - p_hat, 0.01) / max(p_hat, 0.01)))
+
+                    def neg_ll(params):
+                        a, b, c = params
+                        # p_matrix: (n_quad, n_persons)
+                        p = c + (1 - c) * expit(a * (_theta[:, None] - b))
+                        p = np.clip(p, 1e-9, 1 - 1e-9)
+                        lik = p ** y[None, :] * (1 - p) ** (1 - y[None, :])
+                        marg = (_wts_n[:, None] * lik).sum(axis=0)
+                        return -np.sum(np.log(np.maximum(marg, 1e-300)))
+
+                    try:
+                        res = minimize(
+                            neg_ll, [1.0, b0, 0.20],
+                            bounds=[(0.10, 4.0), (-4.0, 4.0), (0.0, 0.40)],
+                            method="L-BFGS-B",
+                            options={"maxiter": 500, "ftol": 1e-8},
+                        )
+                        a, b, c = res.x
+                    except Exception:
+                        return np.nan, np.nan, np.nan
+                    return (
+                        float(np.clip(a, 0.1, 4.0)),
+                        float(np.clip(b, -4.0, 4.0)),
+                        float(np.clip(c, 0.0, 0.40)),
+                    )
+
+                irt_params = [_fit_3pl_item(pre_s[q]) for q in Q_COLS_T7]
+                irt_a = pd.Series([p[0] for p in irt_params], index=Q_COLS_T7)
+                irt_b = pd.Series([p[1] for p in irt_params], index=Q_COLS_T7)
+                irt_c = pd.Series([p[2] for p in irt_params], index=Q_COLS_T7)
+
 
                 # Keep existing item type mapping
                 existing_types = dict(zip(df_full["item"], df_full["type"]))
