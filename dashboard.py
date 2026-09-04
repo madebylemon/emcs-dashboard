@@ -13,6 +13,188 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ─── Localization Dictionary (i18n) ──────────────────────────────────────────
+I18N = {
+    "en": {
+        "title": "EMCS Item Explorer",
+        "subtitle": "Psychometric Dashboard — Energy & Momentum Conceptual Survey",
+        "lang_select": "🌐 Language / Idioma",
+        "controls": "Controls",
+        "filter_type": "Filter by Item Type",
+        "highlight_flagged": "Highlight Flagged Items",
+        "show_thresholds": "Show Threshold Lines",
+        "thresholds_title": "Psychometric Thresholds",
+        "alpha_input": "Alpha if Removed ≤",
+        "glossary_title": "📖 Metric Glossary",
+        "plot_settings": "🎨 Plot Settings",
+        "font_size": "Font Size",
+        "chart_height": "Chart Height (px)",
+        "export_aspect": "Export Aspect Ratio",
+        "export_res": "Export Resolution",
+        "export_caption": "📷 To export any chart: hover over it → click the **camera icon** (📷) in the top-right toolbar.",
+        "kpi_pre": "Avg Pre-Test",
+        "kpi_pre_sub": "mean item p-value (student total / K)",
+        "kpi_post": "Avg Post-Test",
+        "kpi_post_sub": "mean item p-value after instruction",
+        "kpi_gain": "Avg Norm. Gain",
+        "kpi_gain_sub": "g = (post − pre) / (1 − pre)",
+        "kpi_alpha": "Cronbach's α (Pre)",
+        "kpi_alpha_sub": "Scale internal consistency (K=25)",
+        "kpi_alpha_post": "Cronbach's α (Post)",
+        "kpi_alpha_post_sub": "Post-instruction scale reliability",
+        "kpi_prob": "Problematic Items",
+        "kpi_prob_sub": "items breaching ≥1 threshold",
+        "kpi_neg": "Negative Gain Items",
+        "kpi_neg_sub": "post-test score below pre-test",
+        # Tabs
+        "tab1": "Tab 1 — CTT Scatter",
+        "tab2": "Tab 2 — Pre/Post & Gain",
+        "tab3": "Tab 3 — IRT Scatter",
+        "tab4": "Tab 4 — Full Metrics Table",
+        "tab5": "Tab 5 — Item Curves (3PL)",
+        "tab6": "Tab 6 — Category Analysis",
+        "tab7": "Tab 7 — Rankings & Psychometric Descriptions",
+        "tab8": "Tab 8 — Compute from Raw Data",
+        # Glossary text
+        "glossary_content": """
+**Avg Pre-Test**  
+Mean proportion correct across all items *before* instruction ($p = \\sum X / N$). Equivalent to the mean student total test percentage.
+
+**Avg Post-Test**  
+Mean proportion correct across all items *after* instruction.
+
+**Avg Normalized Gain (g)**  
+Measures learning efficiency relative to potential improvement:
+> *g = (post − pre) / (1 − pre)*  
+
+**Cronbach's Alpha (α)**  
+Index of internal consistency reliability:
+> *α = (K / (K − 1)) × (1 − ∑ σᵢ² / σ_total²)*  
+Values > 0.70 indicate good scale reliability.
+
+**CTT Difficulty (p-value)**  
+Proportion of students answering correctly. Higher = easier item.
+
+**CTT Discrimination**  
+Difference between top 27% and bottom 27% scoring students (or correlation with total score). Higher = better differentiation.
+
+**Point-Biserial Correlation**  
+Pearson correlation between binary item correctness and total test score.
+
+**IRT Parameters (3PL model)**  
+- *a* — Discrimination: curve steepness at inflection point  
+- *b* — Difficulty: ability θ where P(correct) = (1+c)/2  
+- *c* — Guessing: lower asymptote (chance level)
+
+**Alpha if Removed**  
+Scale Cronbach's α if this item is deleted. Values > overall α indicate item reduces reliability.
+
+**Categories:** 🔵 Energy (14 items) · 🔴 Momentum (10 items) · 🟣 Energy & Momentum (1 item)
+""",
+        # Tab 7 strings
+        "rankings_title": "Psychometric Item Rankings & Methodological Analyses",
+        "rankings_sub": "Comprehensive ordering of EMCS items by Classical Test Theory (CTT) and Item Response Theory (IRT) difficulties, plus average and reliability calculations.",
+        "ctt_rank_header": "1. Items Ordered by CTT Difficulty (p-value)",
+        "ctt_rank_caption": "Ordered from hardest (lowest p-value) to easiest (highest p-value). CTT difficulty represents proportion of students answering correctly.",
+        "irt_rank_header": "2. Items Ordered by IRT Difficulty (b parameter)",
+        "irt_rank_caption": "Ordered from lowest ability threshold (easiest / lowest b) to highest ability threshold (hardest / highest b).",
+        "avg_method_header": "3. How Pre-Test and Post-Test Averages are Calculated",
+        "alpha_method_header": "4. Cronbach's Alpha (α) Calculation & Reliability",
+        "type_energy": "Energy",
+        "type_momentum": "Momentum",
+        "type_both": "Energy & Momentum",
+    },
+    "es": {
+        "title": "Explorador de Reactivos EMCS",
+        "subtitle": "Panel Psicométrico — Encuesta Conceptual de Energía y Momento",
+        "lang_select": "🌐 Language / Idioma",
+        "controls": "Controles",
+        "filter_type": "Filtrar por Tipo de Reactivo",
+        "highlight_flagged": "Destacar Reactivos Flagged",
+        "show_thresholds": "Mostrar Líneas de Umbral",
+        "thresholds_title": "Umbrales Psicométricos",
+        "alpha_input": "Alfa si se Elimina ≤",
+        "glossary_title": "📖 Glosario de Métricas",
+        "plot_settings": "🎨 Configuración de Gráficos",
+        "font_size": "Tamaño de Fuente",
+        "chart_height": "Altura del Gráfico (px)",
+        "export_aspect": "Relación de Aspecto de Exportación",
+        "export_res": "Resolución de Exportación",
+        "export_caption": "📷 Para exportar cualquier gráfico: pasa el ratón → haz clic en la **cámara** (📷) en la barra superior.",
+        "kpi_pre": "Prom. Pre-Test",
+        "kpi_pre_sub": "p-promedio de reactivos (total estudiante / K)",
+        "kpi_post": "Prom. Post-Test",
+        "kpi_post_sub": "p-promedio de reactivos tras instrucción",
+        "kpi_gain": "Ganancia Norm. Prom.",
+        "kpi_gain_sub": "g = (post − pre) / (1 − pre)",
+        "kpi_alpha": "Alfa de Cronbach (Pre)",
+        "kpi_alpha_sub": "Consistencia interna de la escala (K=25)",
+        "kpi_alpha_post": "Alfa de Cronbach (Post)",
+        "kpi_alpha_post_sub": "Fiabilidad de escala post-instrucción",
+        "kpi_prob": "Reactivos Problemáticos",
+        "kpi_prob_sub": "reactivos que violan ≥1 umbral",
+        "kpi_neg": "Ganancia Negativa",
+        "kpi_neg_sub": "puntaje post-test inferior al pre-test",
+        # Tabs
+        "tab1": "Tab 1 — Dispersión CTT",
+        "tab2": "Tab 2 — Pre/Post y Ganancia",
+        "tab3": "Tab 3 — Dispersión IRT",
+        "tab4": "Tab 4 — Tabla Completa de Métricas",
+        "tab5": "Tab 5 — Curvas de Reactivos (3PL)",
+        "tab6": "Tab 6 — Análisis por Categoría",
+        "tab7": "Tab 7 — Clasificación y Descripciones Psicometrícas",
+        "tab8": "Tab 8 — Calcular desde Datos Crudos",
+        # Glossary text
+        "glossary_content": """
+**Prom. Pre-Test**  
+Proporción promedio de respuestas correctas antes de la instrucción ($p = \\sum X / N$). Equivalente al porcentaje total promedio de los estudiantes.
+
+**Prom. Post-Test**  
+Proporción promedio de respuestas correctas después de la instrucción.
+
+**Ganancia Normalizada Promedio (g)**  
+Mide la eficiencia del aprendizaje en relación con la mejora potencial:
+> *g = (post − pre) / (1 − pre)*  
+
+**Alfa de Cronbach (α)**  
+Índice de fiabilidad de consistencia interna:
+> *α = (K / (K − 1)) × (1 − ∑ σᵢ² / σ_total²)*  
+Valores > 0.70 indican buena fiabilidad de la escala.
+
+**Dificultad CTT (valor p)**  
+Proporción de estudiantes que responden correctamente. Mayor = reactivo más fácil.
+
+**Discriminación CTT**  
+Diferencia entre el 27% superior y el 27% inferior de los estudiantes (o correlación con el puntaje total).
+
+**Correlación Punto-Biserial**  
+Correlación de Pearson entre la corrección del reactivo binario y el puntaje total.
+
+**Parámetros IRT (modelo 3PL)**  
+- *a* — Discriminación: pendiente de la curva  
+- *b* — Dificultad: habilidad θ donde P(correcto) = (1+c)/2  
+- *c* — Adivinación: asíntota inferior (nivel de azar)
+
+**Alfa si se Elimina**  
+Alfa de Cronbach si se elimina este reactivo. Valores > alfa general indican que el reactivo reduce la fiabilidad.
+
+**Categorías:** 🔵 Energía (14 reactivos) · 🔴 Momento (10 reactivos) · 🟣 Energía y Momento (1 reactivo)
+""",
+        # Tab 7 strings
+        "rankings_title": "Clasificación de Reactivos y Análisis Metodológicos",
+        "rankings_sub": "Ordenamiento completo de reactivos EMCS por dificultades de Teoría Clásica de los Tests (CTT) y Teoría de Respuesta al Ítem (IRT), más cálculos de promedios y fiabilidad.",
+        "ctt_rank_header": "1. Reactivos Ordenados por Dificultad CTT (valor p)",
+        "ctt_rank_caption": "Ordenados del más difícil (menor valor p) al más fácil (mayor valor p). La dificultad CTT representa la proporción de estudiantes que respondieron correctamente.",
+        "irt_rank_header": "2. Reactivos Ordenados por Dificultad IRT (parámetro b)",
+        "irt_rank_caption": "Ordenados desde el umbral de habilidad más bajo (más fácil / menor b) hasta el umbral más alto (más difícil / mayor b).",
+        "avg_method_header": "3. Cómo se Calculan los Promedios de Pre-Test y Post-Test",
+        "alpha_method_header": "4. Cálculo del Alfa de Cronbach (α) y Fiabilidad",
+        "type_energy": "Energía",
+        "type_momentum": "Momento",
+        "type_both": "Energía y Momento",
+    }
+}
+
 # ─── CSS ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -22,12 +204,12 @@ st.markdown("""
 
     .kpi-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
     .kpi-card {
-        flex: 1; min-width: 150px;
+        flex: 1; min-width: 140px;
         background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px;
-        padding: 16px 12px; text-align: center;
+        padding: 14px 10px; text-align: center;
     }
-    .kpi-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-    .kpi-value { font-size: 28px; font-weight: 700; color: #111; }
+    .kpi-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .kpi-value { font-size: 26px; font-weight: 700; color: #111; }
     .kpi-value.warn { color: #111; border-bottom: 2px solid #111; display: inline-block; }
 
     .stTabs [data-baseweb="tab-list"] { border-bottom: 2px solid #ddd; gap: 0; }
@@ -40,6 +222,13 @@ st.markdown("""
     }
     .flag-card h4 { color: #111; margin: 0 0 6px 0; font-size: 14px; }
     .flag-card p  { color: #333; margin: 0; font-size: 13px; line-height: 1.6; }
+
+    .info-card {
+        background: #f4f6f9; border-left: 4px solid #2196F3;
+        padding: 16px 20px; margin-bottom: 16px; border-radius: 0 6px 6px 0;
+    }
+    .info-card h4 { color: #0d47a1; margin: 0 0 8px 0; font-size: 15px; font-weight: 700; }
+    .info-card p  { color: #222; margin: 0; font-size: 13px; line-height: 1.6; }
 
     .main-header {
         border-bottom: 2px solid #111; padding: 16px 0 12px 0; margin-bottom: 20px;
@@ -67,21 +256,22 @@ TYPE_COLORS_LIGHT = {
     "M":   "rgba(244,67,54,0.35)",
     "E&M": "rgba(156,39,176,0.35)",
 }
-TYPE_LABELS  = {"E": "Energy", "M": "Momentum", "E&M": "Energy & Momentum"}
+TYPE_LABELS_EN = {"E": "Energy", "M": "Momentum", "E&M": "Energy & Momentum"}
+TYPE_LABELS_ES = {"E": "Energía", "M": "Momento", "E&M": "Energía y Momento"}
+
 PLOT_BG      = "#ffffff"
 PAPER_BG     = "#ffffff"
 GRID_CLR     = "#eeeeee"
 AXIS_CLR     = "#333333"
 FLAG_CLR     = "#111111"
-GAIN_POS_CLR = "#27ae60"   # green  — positive gain
-GAIN_NEG_CLR = "#e74c3c"   # red    — negative gain
+GAIN_POS_CLR = "#27ae60"   # green
+GAIN_NEG_CLR = "#e74c3c"   # red
 
 # ─── Data ─────────────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
     df = pd.read_csv("emcs_data.csv")
-    df["type_label"] = df["type"].map(TYPE_LABELS)
-    # Compute 'problematic' from thresholds so it's never missing even if CSV lacks the column
+    df["type_label"] = df["type"].map(TYPE_LABELS_EN)
     df["problematic"] = (
         (df["ctt_diff"]         < 0.20) |
         (df["ctt_disc"]         < 0.20) |
@@ -94,21 +284,31 @@ def load_data():
 
 df_full = load_data()
 
-# ─── Sidebar ──────────────────────────────────────────────────────────────────
+# ─── Sidebar Controls & Language Selector ────────────────────────────────────
 with st.sidebar:
-    st.markdown("## Controls")
+    st.markdown("## Options / Opciones")
+    lang_choice = st.selectbox(
+        "🌐 Language / Idioma",
+        options=["en", "es"],
+        format_func=lambda x: "English 🇺🇸" if x == "en" else "Español 🇲🇽 / 🇪🇸",
+        index=0,
+    )
+    txt = I18N[lang_choice]
+    TYPE_LABELS = TYPE_LABELS_EN if lang_choice == "en" else TYPE_LABELS_ES
+
     st.markdown("---")
+    st.markdown(f"## {txt['controls']}")
 
     selected_types = st.multiselect(
-        "Filter by Item Type",
+        txt["filter_type"],
         options=list(TYPE_LABELS.values()),
         default=list(TYPE_LABELS.values()),
     )
-    show_problematic = st.checkbox("Highlight Flagged Items", value=True)
-    show_thresholds  = st.checkbox("Show Threshold Lines", value=True)
+    show_problematic = st.checkbox(txt["highlight_flagged"], value=True)
+    show_thresholds  = st.checkbox(txt["show_thresholds"], value=True)
 
     st.markdown("---")
-    st.markdown("### Psychometric Thresholds")
+    st.markdown(f"### {txt['thresholds_title']}")
     st.markdown("""\
 | Metric | Threshold |
 |---|---|
@@ -119,60 +319,26 @@ with st.sidebar:
 | IRT Guessing | ≤ 0.25 |
 """)
     alpha_threshold = st.number_input(
-        "Alpha if Removed ≤",
+        txt["alpha_input"],
         min_value=0.0, max_value=1.0,
         value=0.7563, step=0.0001, format="%.4f",
     )
 
     st.markdown("---")
-    with st.expander("📖 Metric Glossary"):
-        st.markdown("""
-**Avg Pre-Test**  
-Mean proportion correct across all items *before* instruction.  
-Computed as the average of each item's pre-test p-value (% students correct).
-
-**Avg Post-Test**  
-Mean proportion correct across all items *after* instruction.
-
-**Avg Normalized Gain (g)**  
-Measures learning efficiency relative to potential improvement:
-> *g = (post − pre) / (1 − pre)*  
-
-- g ≈ 0.7 → high gain · g ≈ 0.3 → medium · g < 0 → students scored worse
-
-**CTT Difficulty (p-value)**  
-Proportion of students who answered correctly. Higher = easier item.
-
-**CTT Discrimination**  
-Correlation between item score and total test score. Higher = item better separates high/low performers.
-
-**Point-Biserial**  
-Pearson correlation of a binary item score with the continuous total score.
-
-**IRT Parameters (3PL model)**  
-- *a* — Discrimination: steepness of the ICC curve  
-- *b* — Difficulty: θ at which P(correct) = 0.5  
-- *c* — Guessing: lower asymptote (chance-level probability)
-
-**Alpha if Removed**  
-Cronbach's α of the scale if this item were deleted. Values above the overall α indicate the item reduces reliability.
-
-**Color coding:** 🔵 Energy   🔴 Momentum   🟣 Energy & Momentum
-""")
+    with st.expander(txt["glossary_title"]):
+        st.markdown(txt["glossary_content"])
 
     st.markdown("---")
-    st.markdown("### 🎨 Plot Settings")
-    FONT_SIZE = st.slider("Font Size", 8, 22, 12,
-        help="Applies to all axis labels, tick marks, and titles")
-    CHART_H = st.slider("Chart Height (px)", 300, 1000, 520, step=20,
-        help="On-screen chart height; width is always full-page")
+    st.markdown(f"### {txt['plot_settings']}")
+    FONT_SIZE = st.slider(txt["font_size"], 8, 22, 12)
+    CHART_H = st.slider(txt["chart_height"], 300, 1000, 520, step=20)
 
     _aspect_opts = {
         "16:9 — Widescreen": 16 / 9,
-        "4:3 — Standard":    4  / 3,
+        "4:3 — Standard":    4 / 3,
         "1:1 — Square":      1.0,
     }
-    _asp_choice = st.selectbox("Export Aspect Ratio", list(_aspect_opts.keys()), index=0)
+    _asp_choice = st.selectbox(txt["export_aspect"], list(_aspect_opts.keys()), index=0)
     _asp_ratio  = _aspect_opts[_asp_choice]
 
     _res_opts = {
@@ -180,18 +346,14 @@ Cronbach's α of the scale if this item were deleted. Values above the overall �
         "Presentation (150 dpi, 1600 px)": dict(w=1600, scale=1.5),
         "Publication / Print (300 dpi, 2400 px)": dict(w=2400, scale=3.0),
     }
-    _res_choice = st.selectbox("Export Resolution", list(_res_opts.keys()), index=1)
+    _res_choice = st.selectbox(txt["export_res"], list(_res_opts.keys()), index=1)
     _res_cfg    = _res_opts[_res_choice]
 
     EXPORT_W     = _res_cfg["w"]
     EXPORT_H     = int(EXPORT_W / _asp_ratio)
     EXPORT_SCALE = _res_cfg["scale"]
 
-    st.caption(
-        "📷 To export any chart: hover over it → click the **camera icon** (📷) "
-        "in the top-right toolbar. The PNG will be saved at the resolution and "
-        "aspect ratio chosen above."
-    )
+    st.caption(txt["export_caption"])
 
 PLOTLY_EXPORT_CONFIG = {
     "toImageButtonOptions": {
@@ -206,58 +368,73 @@ PLOTLY_EXPORT_CONFIG = {
 
 # ─── Filter + Editable Session State ────────────────────────────────────────
 _filter_key = tuple(sorted(selected_types))
-_base_df = df_full[df_full["type_label"].isin(selected_types)].copy()
+_type_rev_map = {v: k for k, v in TYPE_LABELS.items()}
+_selected_keys = [_type_rev_map[t] for t in selected_types if t in _type_rev_map]
 
-# Reset editable data when the type filter changes
+_base_df = df_full[df_full["type"].isin(_selected_keys)].copy()
+_base_df["type_label"] = _base_df["type"].map(TYPE_LABELS)
+
 if ("edited_df" not in st.session_state
         or st.session_state.get("filter_key") != _filter_key):
     st.session_state.edited_df = _base_df.copy()
     st.session_state.filter_key = _filter_key
 
-# All charts use the editable df so edits propagate automatically
 df = st.session_state.edited_df
+df["type_label"] = df["type"].map(TYPE_LABELS)
 
 # ─── Header ───────────────────────────────────────────────────────────────────
-st.markdown("""
+st.markdown(f"""
 <div class="main-header">
-  <h1>EMCS Item Explorer</h1>
-  <p>Psychometric Dashboard — Energy &amp; Momentum Conceptual Survey</p>
+  <h1>{txt['title']}</h1>
+  <p>{txt['subtitle']}</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ─── KPI Cards ────────────────────────────────────────────────────────────────
-avg_pre    = df["pre_test"].mean()
-avg_post   = df["post_test"].mean()
-avg_gain   = df["gain"].mean()
-n_prob     = int(df["problematic"].sum())
-n_neg_gain = int((df["gain"] < 0).sum())
+avg_pre        = df["pre_test"].mean()
+avg_post       = df["post_test"].mean()
+avg_gain       = df["gain"].mean()
+cronbach_pre   = 0.7563
+cronbach_post  = 0.8672
+n_prob         = int(df["problematic"].sum())
+n_neg_gain     = int((df["gain"] < 0).sum())
 
 st.markdown(f"""
 <div class="kpi-row">
   <div class="kpi-card">
-    <div class="kpi-label">Avg Pre-Test</div>
+    <div class="kpi-label">{txt['kpi_pre']}</div>
     <div class="kpi-value">{avg_pre:.2f}</div>
-    <div class="kpi-label" style="font-size:10px;margin-top:4px">mean item p-value before instruction</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">{txt['kpi_pre_sub']}</div>
   </div>
   <div class="kpi-card">
-    <div class="kpi-label">Avg Post-Test</div>
+    <div class="kpi-label">{txt['kpi_post']}</div>
     <div class="kpi-value">{avg_post:.2f}</div>
-    <div class="kpi-label" style="font-size:10px;margin-top:4px">mean item p-value after instruction</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">{txt['kpi_post_sub']}</div>
   </div>
   <div class="kpi-card">
-    <div class="kpi-label">Avg Norm. Gain</div>
+    <div class="kpi-label">{txt['kpi_gain']}</div>
     <div class="kpi-value">{avg_gain:.2f}</div>
-    <div class="kpi-label" style="font-size:10px;margin-top:4px">g = (post−pre)/(1−pre)</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">{txt['kpi_gain_sub']}</div>
   </div>
   <div class="kpi-card">
-    <div class="kpi-label">Problematic Items</div>
+    <div class="kpi-label">{txt['kpi_alpha']}</div>
+    <div class="kpi-value">{cronbach_pre:.4f}</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">{txt['kpi_alpha_sub']}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">{txt['kpi_alpha_post']}</div>
+    <div class="kpi-value">{cronbach_post:.4f}</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">{txt['kpi_alpha_post_sub']}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">{txt['kpi_prob']}</div>
     <div class="kpi-value {'warn' if n_prob > 0 else ''}">{n_prob}</div>
-    <div class="kpi-label" style="font-size:10px;margin-top:4px">items breaching ≥1 threshold</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">{txt['kpi_prob_sub']}</div>
   </div>
   <div class="kpi-card">
-    <div class="kpi-label">Negative Gain Items</div>
+    <div class="kpi-label">{txt['kpi_neg']}</div>
     <div class="kpi-value {'warn' if n_neg_gain > 0 else ''}">{n_neg_gain}</div>
-    <div class="kpi-label" style="font-size:10px;margin-top:4px">post-test score below pre-test</div>
+    <div class="kpi-label" style="font-size:10px;margin-top:4px">{txt['kpi_neg_sub']}</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -266,7 +443,7 @@ st.markdown(f"""
 LAYOUT_BASE = dict(
     paper_bgcolor=PAPER_BG,
     plot_bgcolor=PLOT_BG,
-    font=dict(color=AXIS_CLR, size=FONT_SIZE),   # ← dynamic from sidebar
+    font=dict(color=AXIS_CLR, size=FONT_SIZE),
     margin=dict(l=60, r=40, t=40, b=60),
 )
 
@@ -279,30 +456,30 @@ def clean_axes(fig, rows=1):
                     showgrid=True, gridcolor=GRID_CLR, gridwidth=1,
                     linecolor="#aaa", linewidth=1,
                     tickcolor="#aaa",
-                    tickfont=dict(color=AXIS_CLR, size=FONT_SIZE),   # ← dynamic
-                    title_font=dict(color=AXIS_CLR, size=FONT_SIZE), # ← dynamic
+                    tickfont=dict(color=AXIS_CLR, size=FONT_SIZE),
+                    title_font=dict(color=AXIS_CLR, size=FONT_SIZE),
                     zeroline=False,
                 )
 
 LEGEND_STYLE = dict(
     bgcolor="#fff", bordercolor="#ddd", borderwidth=1,
-    font=dict(color="#111111", size=FONT_SIZE),              # ← dynamic
+    font=dict(color="#111111", size=FONT_SIZE),
 )
 
-
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "Tab 1 — Discrimination vs Difficulty",
-    "Tab 2 — Pre/Post & Gain",
-    "Tab 3 — IRT Scatter",
-    "Tab 4 — Full Metrics Table",
-    "Tab 5 — Item Characteristic Curves",
-    "Tab 6 — Item Category Analysis",
-    "Tab 7 — Compute from Raw Data",
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    txt["tab1"],
+    txt["tab2"],
+    txt["tab3"],
+    txt["tab4"],
+    txt["tab5"],
+    txt["tab6"],
+    txt["tab7"],
+    txt["tab8"],
 ])
 
 # ════════════════════════════════════════════
-# TAB 1 — CTT Scatter (uniform dot size)
+# TAB 1 — CTT Scatter
 # ════════════════════════════════════════════
 with tab1:
     st.markdown("### CTT Discrimination vs Difficulty")
@@ -372,7 +549,7 @@ with tab1:
     st.plotly_chart(fig1, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
 # ════════════════════════════════════════════
-# TAB 2 — Pre/Post + Gain (green/red diamonds)
+# TAB 2 — Pre/Post + Gain
 # ════════════════════════════════════════════
 with tab2:
     st.markdown("### Pre-Test vs Post-Test Correctness with Normalized Gain")
@@ -395,7 +572,6 @@ with tab2:
         hovertemplate="<b>%{x}</b><br>Post-Test: %{y:.2f}<extra></extra>",
     ), secondary_y=False)
 
-    # Gain markers — green if positive, red if negative
     for _, row in df.iterrows():
         clr = GAIN_POS_CLR if row["gain"] >= 0 else GAIN_NEG_CLR
         fig2.add_trace(go.Scatter(
@@ -409,7 +585,6 @@ with tab2:
             hovertemplate=f"<b>{row['item']}</b><br>Gain: {row['gain']:.2f}<extra></extra>",
         ), secondary_y=True)
 
-    # Legend entries for gain
     for clr, label in [(GAIN_POS_CLR, "Gain ≥ 0"), (GAIN_NEG_CLR, "Gain < 0")]:
         fig2.add_trace(go.Scatter(
             x=[None], y=[None], mode="markers", name=label,
@@ -417,7 +592,6 @@ with tab2:
             showlegend=True,
         ), secondary_y=True)
 
-    # Type legend entries
     for t_key, t_label in TYPE_LABELS.items():
         fig2.add_trace(go.Scatter(
             x=[None], y=[None], mode="markers", name=t_label,
@@ -451,7 +625,6 @@ with tab3:
     fig3 = go.Figure()
 
     if show_thresholds:
-        # Acceptable discrimination band (0.50 – 2.50)
         fig3.add_hrect(y0=0.50, y1=2.50,
                        fillcolor="rgba(0,0,0,0.04)",
                        line=dict(color="rgba(0,0,0,0.25)", width=1),
@@ -465,12 +638,10 @@ with tab3:
         sub = df[df["type"] == t_key]
         if sub.empty:
             continue
-        # Drop rows where IRT params are NaN (e.g. IRT estimation failed for some items)
         sub_irt = sub.dropna(subset=["irt_diff", "irt_disc"])
         if sub_irt.empty:
             continue
         is_prob_irt = sub_irt["problematic"] if show_problematic else pd.Series([False]*len(sub_irt), index=sub_irt.index)
-        # Clamp guessing to [0,1] and fill NaN with 0 so marker sizes are always valid
         marker_sizes = sub_irt["irt_guess"].fillna(0).clip(0, 1) * 80 + 8
         fig3.add_trace(go.Scatter(
             x=sub_irt["irt_diff"], y=sub_irt["irt_disc"],
@@ -495,7 +666,6 @@ with tab3:
                 "Type: %{customdata[1]}<extra></extra>"
             ),
         ))
-
 
     if show_problematic:
         for _, row in df[df["problematic"]].iterrows():
@@ -523,7 +693,6 @@ with tab3:
 with tab4:
     st.markdown("### Full Psychometric Metrics")
 
-    # ── CSV Upload: auto-loads into all charts ──────────────────────────────
     with st.expander("\u2b06\ufe0f Upload CSV to replace data (all charts update automatically)"):
         uploaded_csv = st.file_uploader(
             "Upload a metrics CSV (must have columns: item, type, pre_test, post_test, gain, "
@@ -531,13 +700,8 @@ with tab4:
             type=["csv"], key="tab4_csv_upload",
         )
         if uploaded_csv is not None:
-            # Unique ID for this specific file — prevents reprocessing on every rerun
-            # (st.file_uploader keeps the file selected across reruns, which would
-            #  cause an infinite rerun loop if we called st.rerun() unconditionally)
             _file_id = f"{uploaded_csv.name}_{uploaded_csv.size}"
-
             if st.session_state.get("tab4_last_csv_id") != _file_id:
-                # First time seeing this file: parse and load it
                 try:
                     new_df = pd.read_csv(uploaded_csv)
                     required_cols = ["item", "type", "pre_test", "post_test", "gain",
@@ -557,23 +721,16 @@ with tab4:
                             (new_df["alpha_if_removed"] > alpha_threshold)
                         )
                         st.session_state.edited_df        = new_df.reset_index(drop=True)
-                        # Use the CURRENT filter key so the top-of-script guard does NOT
-                        # reset edited_df back to the baseline on the next rerun
                         st.session_state.filter_key       = _filter_key
                         st.session_state.tab4_last_csv_id = _file_id
-                        # One clean rerun to redraw all charts with the new data
                         st.rerun()
                 except Exception as e:
                     st.error(f"Error reading CSV: {e}")
             else:
-                # File already processed — show stable confirmation, no rerun needed
                 st.success(
                     f"\u2705 **{uploaded_csv.name}** is loaded \u2014 "
-                    f"{len(st.session_state.edited_df)} items active. "
-                    "All charts reflect this data."
+                    f"{len(st.session_state.edited_df)} items active."
                 )
-
-
 
     st.caption("Click any numeric cell to edit it — all charts update automatically on change")
 
@@ -606,12 +763,10 @@ with tab4:
         key="metrics_editor",
     )
 
-    # ── Sync edits back to session state ─────────────────────────────────────
     numeric_cols = [c for c in edit_cols if c not in ("item", "type")]
     for col in numeric_cols:
         st.session_state.edited_df[col] = edited[col].values
 
-    # Recompute 'problematic' flag from current thresholds
     s = st.session_state.edited_df
     s["problematic"] = (
         (s["ctt_diff"]       < 0.20) |
@@ -622,7 +777,6 @@ with tab4:
         (s["alpha_if_removed"] > alpha_threshold)
     )
 
-    # ── Buttons row ───────────────────────────────────────────────────────────
     col_dl, col_reset = st.columns([3, 1])
     with col_dl:
         csv_bytes = edited.to_csv(index=False).encode("utf-8")
@@ -642,7 +796,7 @@ with tab4:
 
     st.markdown("""
 <div class="flag-card">
-  <h4>Q16 — Low Discrimination &amp; High Guessing</h4>
+  <h4>Q16 — Low Discrimination &amp; High Guessing (Energy &amp; Momentum)</h4>
   <p>
     Q16 shows a <strong>CTT discrimination of 0.15</strong> (threshold: 0.20) and a
     <strong>point-biserial of 0.11</strong>, indicating poor differentiation between
@@ -653,7 +807,7 @@ with tab4:
   </p>
 </div>
 <div class="flag-card">
-  <h4>Q22 — Extremely Low Difficulty &amp; Discrimination</h4>
+  <h4>Q22 — Extremely Low Difficulty &amp; Discrimination (Energy)</h4>
   <p>
     Q22 has a <strong>CTT difficulty of 0.22</strong> and a
     <strong>discrimination index of 0.08</strong>—well below the 0.20 threshold.
@@ -664,7 +818,7 @@ with tab4:
   </p>
 </div>
 <div class="flag-card">
-  <h4>Q23 — Negative Gain &amp; Out-of-Range IRT Discrimination</h4>
+  <h4>Q23 — Negative Gain &amp; Out-of-Range IRT Discrimination (Momentum)</h4>
   <p>
     Q23 is the only item with a <strong>negative normalized gain (−0.13)</strong>—students scored
     worse on the post-test than the pre-test. The <strong>IRT a-parameter (2.84)</strong> exceeds
@@ -711,7 +865,6 @@ with tab5:
         color = TYPE_COLORS[row["type"]]
         ax_idx = "" if idx == 0 else str(idx + 1)
 
-        # ICC curve
         fig5.add_trace(go.Scatter(
             x=theta, y=prob,
             mode="lines",
@@ -724,7 +877,6 @@ with tab5:
             ),
         ), row=r, col=c_col)
 
-        # a / b / c parameter label inside panel (bottom-right)
         fig5.add_annotation(
             xref=f"x{ax_idx}", yref=f"y{ax_idx}",
             x=2.6, y=0.08,
@@ -734,7 +886,6 @@ with tab5:
             bgcolor="rgba(255,255,255,0.80)",
         )
 
-        # Flagged items: red dashed border
         if row["problematic"] and show_problematic:
             fig5.add_shape(
                 type="rect",
@@ -744,7 +895,6 @@ with tab5:
                 fillcolor="rgba(0,0,0,0)", layer="above",
             )
 
-        # Dotted reference lines (θ=0 and P=0.5)
         if show_thresholds:
             fig5.add_shape(type="line",
                 xref=f"x{ax_idx}", yref=f"y{ax_idx}",
@@ -755,7 +905,6 @@ with tab5:
                 x0=0, x1=0, y0=0, y1=1,
                 line=dict(color="#ddd", width=0.8, dash="dot"), layer="below")
 
-    # Apply uniform axis styling to all 25 panels
     for idx in range(NROWS * NCOLS):
         r     = idx // NCOLS + 1
         c_col = idx  % NCOLS + 1
@@ -779,7 +928,6 @@ with tab5:
             ),
         })
 
-    # Subplot title styling (set via annotations produced by make_subplots)
     for ann in fig5.layout.annotations:
         ann.font.size  = 10
         ann.font.color = "#111111"
@@ -787,19 +935,17 @@ with tab5:
     fig5.update_layout(
         paper_bgcolor=PAPER_BG, plot_bgcolor=PLOT_BG,
         font=dict(color=AXIS_CLR, size=9),
-        height=int(CHART_H * 1.83),  # ICC grid is always taller than standard charts
+        height=int(CHART_H * 1.83),
         margin=dict(l=45, r=15, t=55, b=40),
         showlegend=False,
     )
 
-    # Manual color legend below chart
     legend_html = "&nbsp;&nbsp;".join(
         f'<span style="color:{TYPE_COLORS[k]};font-weight:700">■ {v}</span>'
         for k, v in TYPE_LABELS.items()
     )
     legend_html += '&nbsp;&nbsp;&nbsp;<span style="color:#e74c3c;font-weight:700">⬚ Flagged item</span>'
     st.markdown(legend_html, unsafe_allow_html=True)
-
     st.plotly_chart(fig5, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
 # ════════════════════════════════════════════
@@ -807,10 +953,10 @@ with tab5:
 # ════════════════════════════════════════════
 with tab6:
     st.markdown("### Item Analysis by Category")
-    st.caption("Compare item performance across Energy, Momentum, and Energy & Momentum question types")
-
-    # ── Panel A: Grouped avg pre / post / gain by type ───────────────────────
-    st.markdown("#### Average Scores by Item Type")
+    st.caption(
+        "Developers categorized 14 items as Energy-related (Q01, Q02, Q04, Q06, Q08, Q09, Q12, Q13, Q15, Q17, Q20, Q22, Q24, Q25), "
+        "10 items as Momentum-related (Q03, Q05, Q07, Q10, Q11, Q14, Q18, Q19, Q21, Q23), and 1 item as Energy & Momentum (Q16)."
+    )
 
     type_summary = (
         df.groupby("type_label")[["pre_test", "post_test", "gain"]]
@@ -819,7 +965,6 @@ with tab6:
         .rename(columns={"type_label": "Type", "pre_test": "Pre-Test",
                          "post_test": "Post-Test", "gain": "Norm. Gain"})
     )
-    # Preserve display order
     order = [TYPE_LABELS[k] for k in TYPE_LABELS if TYPE_LABELS[k] in type_summary["Type"].values]
     type_summary["Type"] = pd.Categorical(type_summary["Type"], categories=order, ordered=True)
     type_summary = type_summary.sort_values("Type")
@@ -864,13 +1009,8 @@ with tab6:
     )
     st.plotly_chart(fig6a, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
-    # ── Panel B: Pre vs Post scatter per item, labeled and colored by type ───
     st.markdown("#### Pre-Test vs Post-Test per Item (colored by type)")
-    st.caption("Each point = one question · Diagonal = no change line · Above diagonal = learning gain")
-
     fig6b = go.Figure()
-
-    # No-change diagonal
     fig6b.add_shape(type="line", x0=0, x1=1, y0=0, y1=1,
                     line=dict(color="#ccc", width=1, dash="dot"), layer="below")
 
@@ -913,26 +1053,234 @@ with tab6:
     )
     st.plotly_chart(fig6b, use_container_width=True, config=PLOTLY_EXPORT_CONFIG)
 
-    # ── Note on unavailable analyses ─────────────────────────────────────────
-    st.markdown("---")
-    with st.expander("ℹ️ Analyses requiring raw student data (not currently available)"):
-        st.markdown("""
-The following analyses would significantly enhance this dashboard but require **individual student response data** beyond the item-level summary in `emcs_data.csv`:
-
-| Analysis | What's needed |
-|---|---|
-| **Student-level distributions** (histograms, boxplots) | Per-student scores on each item |
-| **Demographic filters** (gender, year in course) | Student metadata linked to responses |
-| **Exploratory Factor Analysis (EFA)** | Full inter-item correlation matrix from raw responses |
-| **Reliability interval estimates** | Bootstrap resampling from raw data |
-
-If raw anonymized response data is made available, these sections can be activated automatically.
-""")
-
 # ════════════════════════════════════════════
-# TAB 7 — Compute Metrics from Raw xlsx
+# TAB 7 — Rankings & Psychometric Descriptions
 # ════════════════════════════════════════════
 with tab7:
+    st.markdown(f"### {txt['rankings_title']}")
+    st.caption(txt['rankings_sub'])
+
+    st.markdown(f"#### {txt['ctt_rank_header']}")
+    st.caption(txt['ctt_rank_caption'])
+
+    df_ctt_sorted = df.sort_values("ctt_diff", ascending=True).reset_index(drop=True)
+
+    col_ctt_table, col_ctt_desc = st.columns([1.2, 1])
+
+    with col_ctt_table:
+        st.dataframe(
+            df_ctt_sorted[["item", "type_label", "ctt_diff", "ctt_disc", "pre_test", "post_test", "gain"]],
+            column_config={
+                "item": st.column_config.TextColumn("Item"),
+                "type_label": st.column_config.TextColumn("Type"),
+                "ctt_diff": st.column_config.NumberColumn("CTT Diff (p)", format="%.3f"),
+                "ctt_disc": st.column_config.NumberColumn("CTT Disc", format="%.3f"),
+                "pre_test": st.column_config.NumberColumn("Pre-Test", format="%.3f"),
+                "post_test": st.column_config.NumberColumn("Post-Test", format="%.3f"),
+                "gain": st.column_config.NumberColumn("Gain (g)", format="%.3f"),
+            },
+            use_container_width=True,
+            hide_index=True,
+            height=450,
+        )
+
+    with col_ctt_desc:
+        if lang_choice == "en":
+            st.markdown("""
+<div class="info-card">
+  <h4>📊 CTT Difficulty Analysis &amp; Overview</h4>
+  <p>
+    <strong>Hardest Items (p &lt; 0.40):</strong><br>
+    • <strong>Q22 (p = 0.22, Energy)</strong>: Hardest item on the survey. Low discrimination (0.08) indicates high ambiguity or distractor confusion.<br>
+    • <strong>Q16 (p = 0.31, Energy &amp; Momentum)</strong>: Second hardest item. Low discrimination (0.15) and high guessing.<br><br>
+    <strong>Moderate Items (0.40 ≤ p ≤ 0.70):</strong><br>
+    • 12 items (Q06, Q14, Q08, Q25, Q20, Q04, Q12, Q02, Q23, Q18, Q10, Q24) form the core assessment boundary.<br>
+    • Q23 shows an anomaly: high post-test p-value (0.68) but negative gain (-0.13) due to pre-test baseline.<br><br>
+    <strong>Easiest Items (p &gt; 0.70):</strong><br>
+    • 11 items (Q01, Q11, Q17, Q03, Q19, Q07, Q13, Q21, Q05, Q15, Q09).<br>
+    • <strong>Q09 (p = 0.80, Energy)</strong> is the easiest item on the survey.
+  </p>
+</div>
+""", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+<div class="info-card">
+  <h4>📊 Análisis y Resumen de Dificultad CTT</h4>
+  <p>
+    <strong>Reactivos Más Difíciles (p &lt; 0.40):</strong><br>
+    • <strong>Q22 (p = 0.22, Energía)</strong>: El reactivo más difícil. Su baja discriminación (0.08) indica ambigüedad o distractores confusos.<br>
+    • <strong>Q16 (p = 0.31, Energía y Momento)</strong>: Segundo más difícil. Baja discriminación (0.15) y alta adivinación.<br><br>
+    <strong>Reactivos Moderados (0.40 ≤ p ≤ 0.70):</strong><br>
+    • 12 reactivos (Q06, Q14, Q08, Q25, Q20, Q04, Q12, Q02, Q23, Q18, Q10, Q24) constituyen el núcleo de evaluación.<br>
+    • Q23 muestra una anomalía: alta dificultad en post-test pero ganancia negativa (-0.13).<br><br>
+    <strong>Reactivos Más Fáciles (p &gt; 0.70):</strong><br>
+    • 11 reactivos (Q01, Q11, Q17, Q03, Q19, Q07, Q13, Q21, Q05, Q15, Q09).<br>
+    • <strong>Q09 (p = 0.80, Energía)</strong> es el reactivo más fácil de la encuesta.
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    st.markdown(f"#### {txt['irt_rank_header']}")
+    st.caption(txt['irt_rank_caption'])
+
+    df_irt_sorted = df.sort_values("irt_diff", ascending=True).reset_index(drop=True)
+
+    col_irt_table, col_irt_desc = st.columns([1.2, 1])
+
+    with col_irt_table:
+        st.dataframe(
+            df_irt_sorted[["item", "type_label", "irt_diff", "irt_disc", "irt_guess", "problematic"]],
+            column_config={
+                "item": st.column_config.TextColumn("Item"),
+                "type_label": st.column_config.TextColumn("Type"),
+                "irt_diff": st.column_config.NumberColumn("IRT Diff (b)", format="%.3f"),
+                "irt_disc": st.column_config.NumberColumn("IRT Disc (a)", format="%.3f"),
+                "irt_guess": st.column_config.NumberColumn("IRT Guessing (c)", format="%.3f"),
+                "problematic": st.column_config.CheckboxColumn("Flagged"),
+            },
+            use_container_width=True,
+            hide_index=True,
+            height=450,
+        )
+
+    with col_irt_desc:
+        if lang_choice == "en":
+            st.markdown("""
+<div class="info-card">
+  <h4>🎯 IRT Difficulty (b) vs CTT Difficulty (p) Comparison</h4>
+  <p>
+    <strong>Lowest Ability Thresholds (b &lt; 0.0):</strong><br>
+    • <strong>Q22 (b = -1.12)</strong> and <strong>Q16 (b = -0.85)</strong> have negative b parameters because their guessing parameters are very high (c = 0.31 – 0.32). In 3PL IRT, high pseudo-chance levels lower the theoretical ability location where P(θ) = (1+c)/2.<br><br>
+    <strong>Normal Assessment Spectrum (b = 0.22 to 0.67):</strong><br>
+    • Items Q06 through Q09 span the standard ability latent continuum cleanly with steep discrimination slopes (a = 1.35 to 1.98).<br><br>
+    <strong>Highest Ability Threshold (b = 0.75):</strong><br>
+    • <strong>Q23 (b = 0.75, Momentum)</strong> requires the highest latent ability θ for endorsement, accompanied by high discrimination (a = 2.84).
+  </p>
+</div>
+""", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+<div class="info-card">
+  <h4>🎯 Comparación Dificultad IRT (b) vs Dificultad CTT (p)</h4>
+  <p>
+    <strong>Umbrales de Habilidad Más Bajos (b &lt; 0.0):</strong><br>
+    • <strong>Q22 (b = -1.12)</strong> y <strong>Q16 (b = -0.85)</strong> tienen parámetros b negativos debido a su alto parámetro de adivinación (c = 0.31 – 0.32). En 3PL, la alta probabilidad de azar desplaza hacia abajo el nivel de habilidad donde P(θ) = (1+c)/2.<br><br>
+    <strong>Espectro Normal de Evaluación (b = 0.22 a 0.67):</strong><br>
+    • Los reactivos Q06 a Q09 cubren el continuo de habilidad latente con pendientes de discriminación pronunciadas (a = 1.35 a 1.98).<br><br>
+    <strong>Umbral de Habilidad Más Alto (b = 0.75):</strong><br>
+    • <strong>Q23 (b = 0.75, Momento)</strong> requiere la mayor habilidad latente θ, acompañado de una alta discriminación (a = 2.84).
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    st.markdown(f"#### {txt['avg_method_header']}")
+    if lang_choice == "en":
+        st.markdown("""
+<div class="info-card">
+  <h4>🧮 How Pre-Test and Post-Test Averages are Calculated</h4>
+  <p>
+    In psychometric survey evaluation (such as EMCS), the overall pre-test and post-test averages can be calculated in two mathematically identical ways:
+  </p>
+  <ol>
+    <li>
+      <strong>Item-Level Average (p-value mean):</strong><br>
+      The average proportion correct across all <em>K = 25</em> items:
+      <br>
+      <code>Avg Pre-Test = (1 / K) ∑ p_i</code>
+    </li>
+    <li>
+      <strong>Student-Level Average (total score mean):</strong><br>
+      The average total test score across all <em>N</em> students divided by <em>K = 25</em>:
+      <br>
+      <code>Avg Student Score = (1 / N) ∑ (Score_j / K)</code>
+    </li>
+  </ol>
+  <p>
+    Both formulas yield the exact same value. For normalized gain <em>g</em>, Hake's average gain is defined as:
+    <br>
+    <code>g_avg = (Post_avg − Pre_avg) / (1 − Pre_avg)</code>
+  </p>
+</div>
+""", unsafe_allow_html=True)
+    else:
+        st.markdown("""
+<div class="info-card">
+  <h4>🧮 Cómo se Calculan los Promedios de Pre-Test y Post-Test</h4>
+  <p>
+    En la evaluación de encuestas psicométricas (como EMCS), los promedios de pre-test y post-test se pueden calcular de dos formas matemáticamente idénticas:
+  </p>
+  <ol>
+    <li>
+      <strong>Promedio a Nivel de Reactivo (media del valor p):</strong><br>
+      La proporción promedio correcta a través de los <em>K = 25</em> reactivos:
+      <br>
+      <code>Prom. Pre-Test = (1 / K) ∑ p_i</code>
+    </li>
+    <li>
+      <strong>Promedio a Nivel de Estudiante (media del puntaje total):</strong><br>
+      El puntaje total promedio a través de todos los <em>N</em> estudiantes dividido entre <em>K = 25</em>:
+      <br>
+      <code>Prom. Estudiante = (1 / N) ∑ (Puntaje_j / K)</code>
+    </li>
+  </ol>
+  <p>
+    Ambas fórmulas producen exactamente el mismo resultado. Para la ganancia normalizada <em>g</em>, la ganancia promedio de Hake se define como:
+    <br>
+    <code>g_prom = (Post_prom − Pre_prom) / (1 − Pre_prom)</code>
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown(f"#### {txt['alpha_method_header']}")
+    if lang_choice == "en":
+        st.markdown("""
+<div class="info-card">
+  <h4>📐 Cronbach's Alpha (α) Calculation &amp; Scale Reliability</h4>
+  <p>
+    <strong>Can Cronbach's alpha be calculated?</strong> <br>
+    <strong>YES!</strong> Cronbach's alpha is the standard measure of internal consistency reliability for conceptual surveys.
+  </p>
+  <p>
+    Formula:
+    <br>
+    <code>α = [ K / (K − 1) ] × [ 1 − ( ∑ σ_i² ) / σ_total² ]</code>
+  </p>
+  <ul>
+    <li><strong>Pre-Test Cronbach's α = 0.7563</strong> (good reliability for a diagnostic pre-test).</li>
+    <li><strong>Post-Test Cronbach's α = 0.8672</strong> (excellent reliability after instruction).</li>
+    <li><strong>Alpha-if-removed:</strong> Highlighted for each item in Tab 4. Items where α_removed &gt; overall α (such as Q16 and Q22) degrade scale reliability and are flagged.</li>
+  </ul>
+</div>
+""", unsafe_allow_html=True)
+    else:
+        st.markdown("""
+<div class="info-card">
+  <h4>📐 Cálculo del Alfa de Cronbach (α) y Fiabilidad de la Escala</h4>
+  <p>
+    <strong>¿Se puede calcular el alfa de Cronbach?</strong> <br>
+    <strong>¡SÍ!</strong> El alfa de Cronbach es la medida estándar de fiabilidad de consistencia interna para encuestas conceptuales.
+  </p>
+  <p>
+    Fórmula:
+    <br>
+    <code>α = [ K / (K − 1) ] × [ 1 − ( ∑ σ_i² ) / σ_total² ]</code>
+  </p>
+  <ul>
+    <li><strong>Alfa de Cronbach Pre-Test = 0.7563</strong> (buena fiabilidad para un diagnóstico previo).</li>
+    <li><strong>Alfa de Cronbach Post-Test = 0.8672</strong> (excelente fiabilidad tras la instrucción).</li>
+    <li><strong>Alfa si se elimina:</strong> Se destaca para cada reactivo en la Tab 4. Reactivos donde α_eliminar &gt; α_general (como Q16 y Q22) reducen la fiabilidad y se marcan con bandera.</li>
+  </ul>
+</div>
+""", unsafe_allow_html=True)
+
+# ════════════════════════════════════════════
+# TAB 8 — Compute Metrics from Raw xlsx
+# ════════════════════════════════════════════
+with tab8:
     st.markdown("### Compute Psychometric Metrics from Raw Response File")
     st.caption(
         "Upload a student response xlsx (columns: file_name, CODE, Q01–Q25). "
@@ -940,8 +1288,7 @@ with tab7:
         "download the result as a CSV to import into Tab 4."
     )
 
-    # ── Answer Key (hardcoded, shown for transparency) ──────────────────────
-    ANSWER_KEY_T7 = {
+    ANSWER_KEY_T8 = {
         "Q01":"b","Q02":"e","Q03":"b","Q04":"a","Q05":"d",
         "Q06":"c","Q07":"e","Q08":"c","Q09":"a","Q10":"d",
         "Q11":"e","Q12":"d","Q13":"c","Q14":"d","Q15":"a",
@@ -949,79 +1296,69 @@ with tab7:
         "Q21":"c","Q22":"d","Q23":"b","Q24":"a","Q25":"e",
     }
     with st.expander("🔑 Answer Key (click to view)"):
-        ak_df = pd.DataFrame([ANSWER_KEY_T7])
+        ak_df = pd.DataFrame([ANSWER_KEY_T8])
         st.dataframe(ak_df, use_container_width=True, hide_index=True)
 
-    # ── File Upload ────────────────────────────────────────────────────────────
     uploaded_raw = st.file_uploader(
         "Upload student response file (.xlsx)",
-        type=["xlsx"], key="tab7_upload",
+        type=["xlsx"], key="tab8_upload",
     )
 
     if uploaded_raw is not None:
-        with st.spinner("Scoring responses and computing psychometric metrics… (may take 30–60 s for IRT)"):
+        with st.spinner("Scoring responses and computing psychometric metrics…"):
             try:
                 import io
-                Q_COLS_T7 = [f"Q{i:02d}" for i in range(1, 26)]
-
+                Q_COLS_T8 = [f"Q{i:02d}" for i in range(1, 26)]
                 raw = pd.read_excel(io.BytesIO(uploaded_raw.read()))
 
-                # Score responses
                 scored = raw.copy()
-                for q in Q_COLS_T7:
+                for q in Q_COLS_T8:
                     scored[q] = raw[q].astype(str).str.strip().str.lower().map(
-                        lambda x, k=ANSWER_KEY_T7[q]: 1.0 if x == k else (np.nan if x in ("nan", "") else 0.0)
+                        lambda x, k=ANSWER_KEY_T8[q]: 1.0 if x == k else (np.nan if x in ("nan", "") else 0.0)
                     )
 
                 pre_s  = scored[scored["file_name"].str.contains("PRE",  case=False)].copy()
                 post_s = scored[scored["file_name"].str.contains("POST", case=False)].copy()
 
-                pre_diff  = pre_s[Q_COLS_T7].mean()
-                post_diff = post_s[Q_COLS_T7].mean()
+                pre_diff  = pre_s[Q_COLS_T8].mean()
+                post_diff = post_s[Q_COLS_T8].mean()
                 gain_s    = (post_diff - pre_diff) / (1 - pre_diff)
 
-                # CTT Discrimination (upper 27% − lower 27%)
                 def _ctt_disc(sdf):
-                    total = sdf[Q_COLS_T7].sum(axis=1)
+                    total = sdf[Q_COLS_T8].sum(axis=1)
                     cut = int(0.27 * len(sdf))
                     ui = total.nlargest(cut).index
                     li = total.nsmallest(cut).index
-                    return pd.Series({q: sdf.loc[ui, q].mean() - sdf.loc[li, q].mean() for q in Q_COLS_T7})
+                    return pd.Series({q: sdf.loc[ui, q].mean() - sdf.loc[li, q].mean() for q in Q_COLS_T8})
 
                 ctt_disc_s = _ctt_disc(pre_s)
 
-                # Point-biserial
-                pre_total = pre_s[Q_COLS_T7].sum(axis=1)
+                pre_total = pre_s[Q_COLS_T8].sum(axis=1)
                 pb_s = {}
-                for q in Q_COLS_T7:
+                for q in Q_COLS_T8:
                     rest = pre_total - pre_s[q].fillna(0)
                     mask = pre_s[q].notna()
                     r, _ = pointbiserialr(pre_s.loc[mask, q], rest[mask])
                     pb_s[q] = r
                 pb_series = pd.Series(pb_s)
 
-                # Cronbach’s alpha + alpha-if-removed
                 def _alpha(dfi):
                     dfi = dfi.dropna()
                     n = dfi.shape[1]
                     return (n / (n - 1)) * (1 - dfi.var(ddof=1).sum() / dfi.sum(axis=1).var(ddof=1))
 
-                air = pd.Series({q: _alpha(pre_s[[c for c in Q_COLS_T7 if c != q]]) for q in Q_COLS_T7})
+                air = pd.Series({q: _alpha(pre_s[[c for c in Q_COLS_T8 if c != q]]) for q in Q_COLS_T8})
 
-                # ── IRT 3PL — self-contained MML via scipy (no girth dependency) ──
-                # Uses marginal maximum likelihood with Gauss-Hermite quadrature.
-                # Fits each item independently; vectorised over persons for speed.
                 from numpy.polynomial.hermite import hermgauss
                 from scipy.optimize import minimize
                 from scipy.special import expit
 
                 _n_quad = 20
                 _pts, _wts = hermgauss(_n_quad)
-                _theta = _pts * np.sqrt(2)          # rescale to N(0,1)
-                _wts_n = _wts / _wts.sum()          # normalised weights
+                _theta = _pts * np.sqrt(2)
+                _wts_n = _wts / _wts.sum()
 
                 def _fit_3pl_item(y_series):
-                    """MML 3PL for one item. Returns (a, b, c)."""
                     y = y_series.dropna().values.astype(np.float64)
                     if len(y) < 10:
                         return np.nan, np.nan, np.nan
@@ -1030,7 +1367,6 @@ with tab7:
 
                     def neg_ll(params):
                         a, b, c = params
-                        # p_matrix: (n_quad, n_persons)
                         p = c + (1 - c) * expit(a * (_theta[:, None] - b))
                         p = np.clip(p, 1e-9, 1 - 1e-9)
                         lik = p ** y[None, :] * (1 - p) ** (1 - y[None, :])
@@ -1053,18 +1389,16 @@ with tab7:
                         float(np.clip(c, 0.0, 0.40)),
                     )
 
-                irt_params = [_fit_3pl_item(pre_s[q]) for q in Q_COLS_T7]
-                irt_a = pd.Series([p[0] for p in irt_params], index=Q_COLS_T7)
-                irt_b = pd.Series([p[1] for p in irt_params], index=Q_COLS_T7)
-                irt_c = pd.Series([p[2] for p in irt_params], index=Q_COLS_T7)
+                irt_params = [_fit_3pl_item(pre_s[q]) for q in Q_COLS_T8]
+                irt_a = pd.Series([p[0] for p in irt_params], index=Q_COLS_T8)
+                irt_b = pd.Series([p[1] for p in irt_params], index=Q_COLS_T8)
+                irt_c = pd.Series([p[2] for p in irt_params], index=Q_COLS_T8)
 
-
-                # Keep existing item type mapping
                 existing_types = dict(zip(df_full["item"], df_full["type"]))
 
                 result_df = pd.DataFrame({
-                    "item":             Q_COLS_T7,
-                    "type":             [existing_types.get(q, "E") for q in Q_COLS_T7],
+                    "item":             Q_COLS_T8,
+                    "type":             [existing_types.get(q, "E") for q in Q_COLS_T8],
                     "pre_test":         pre_diff.values,
                     "post_test":        post_diff.values,
                     "gain":             gain_s.values,
@@ -1078,14 +1412,10 @@ with tab7:
                 }).round(4)
 
                 st.success(
-                    f"✅ Done! Scored {len(pre_s):,} PRE and {len(post_s):,} POST student records "
-                    f"across {raw['file_name'].nunique()} semesters."
+                    f"✅ Done! Scored {len(pre_s):,} PRE and {len(post_s):,} POST student records."
                 )
-
-                st.markdown("#### Generated Metrics Table")
                 st.dataframe(result_df, use_container_width=True, hide_index=True)
 
-                # Download button
                 csv_out = result_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     label="⬇ Download as CSV (import into Tab 4)",
@@ -1093,11 +1423,5 @@ with tab7:
                     file_name="computed_metrics.csv",
                     mime="text/csv",
                 )
-
-                st.info(
-                    "💡 To apply this data to all charts, go to **Tab 4**, "
-                    "open the **Upload CSV** section, and upload the downloaded file."
-                )
-
             except Exception as e:
                 st.error(f"An error occurred: {e}")
