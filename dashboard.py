@@ -1322,8 +1322,16 @@ with tab8:
 
                 pre_diff  = pre_s[Q_COLS_T8].mean()
                 post_diff = post_s[Q_COLS_T8].mean()
-                gain_s    = (post_diff - pre_diff) / (1 - pre_diff)
+                gain_s    = pd.Series([
+                    (post_diff[q] - pre_diff[q]) / (1 - pre_diff[q]) if post_diff[q] >= pre_diff[q]
+                    else (post_diff[q] - pre_diff[q]) / pre_diff[q]
+                    for q in Q_COLS_T8
+                ], index=Q_COLS_T8)
 
+                # Overall CTT Difficulty (p-value) across combined pre + post dataset
+                ctt_diff_s = scored[Q_COLS_T8].mean()
+
+                # CTT Discrimination (upper 27% − lower 27%) across combined dataset
                 def _ctt_disc(sdf):
                     total = sdf[Q_COLS_T8].sum(axis=1)
                     cut = int(0.27 * len(sdf))
@@ -1331,24 +1339,27 @@ with tab8:
                     li = total.nsmallest(cut).index
                     return pd.Series({q: sdf.loc[ui, q].mean() - sdf.loc[li, q].mean() for q in Q_COLS_T8})
 
-                ctt_disc_s = _ctt_disc(pre_s)
+                ctt_disc_s = _ctt_disc(scored)
 
-                pre_total = pre_s[Q_COLS_T8].sum(axis=1)
+                # Point-biserial correlation across combined dataset
+                total_score = scored[Q_COLS_T8].sum(axis=1)
                 pb_s = {}
                 for q in Q_COLS_T8:
-                    rest = pre_total - pre_s[q].fillna(0)
-                    mask = pre_s[q].notna()
-                    r, _ = pointbiserialr(pre_s.loc[mask, q], rest[mask])
+                    rest = total_score - scored[q].fillna(0)
+                    mask = scored[q].notna()
+                    r, _ = pointbiserialr(scored.loc[mask, q], rest[mask])
                     pb_s[q] = r
                 pb_series = pd.Series(pb_s)
 
+                # Cronbach’s alpha-if-removed across combined dataset
                 def _alpha(dfi):
                     dfi = dfi.dropna()
                     n = dfi.shape[1]
                     return (n / (n - 1)) * (1 - dfi.var(ddof=1).sum() / dfi.sum(axis=1).var(ddof=1))
 
-                air = pd.Series({q: _alpha(pre_s[[c for c in Q_COLS_T8 if c != q]]) for q in Q_COLS_T8})
+                air = pd.Series({q: _alpha(scored[[c for c in Q_COLS_T8 if c != q]]) for q in Q_COLS_T8})
 
+                # ── IRT 3PL MML estimation across combined dataset ──
                 from numpy.polynomial.hermite import hermgauss
                 from scipy.optimize import minimize
                 from scipy.special import expit
@@ -1389,7 +1400,7 @@ with tab8:
                         float(np.clip(c, 0.0, 0.40)),
                     )
 
-                irt_params = [_fit_3pl_item(pre_s[q]) for q in Q_COLS_T8]
+                irt_params = [_fit_3pl_item(scored[q]) for q in Q_COLS_T8]
                 irt_a = pd.Series([p[0] for p in irt_params], index=Q_COLS_T8)
                 irt_b = pd.Series([p[1] for p in irt_params], index=Q_COLS_T8)
                 irt_c = pd.Series([p[2] for p in irt_params], index=Q_COLS_T8)
@@ -1402,7 +1413,7 @@ with tab8:
                     "pre_test":         pre_diff.values,
                     "post_test":        post_diff.values,
                     "gain":             gain_s.values,
-                    "ctt_diff":         pre_diff.values,
+                    "ctt_diff":         ctt_diff_s.values,
                     "ctt_disc":         ctt_disc_s.values,
                     "point_biserial":   pb_series.values,
                     "irt_diff":         irt_b.values,
@@ -1412,7 +1423,8 @@ with tab8:
                 }).round(4)
 
                 st.success(
-                    f"✅ Done! Scored {len(pre_s):,} PRE and {len(post_s):,} POST student records."
+                    f"✅ Done! Scored {len(pre_s):,} PRE and {len(post_s):,} POST student records "
+                    f"({len(scored):,} total responses)."
                 )
                 st.dataframe(result_df, use_container_width=True, hide_index=True)
 
