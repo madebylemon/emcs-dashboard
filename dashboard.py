@@ -1363,53 +1363,73 @@ with tab8:
 
                 air = pd.Series({q: _alpha(scored_ctt[[c for c in Q_COLS_T8 if c != q]]) for q in Q_COLS_T8})
 
-                # ── IRT Analysis: Exclude student response entirely if ANY answer is NA (Complete Cases) ──
+                # ── IRT Analysis: Joint 25-Item 3PL MML Estimation on Complete Cases ──
                 scored_irt = scored.dropna(subset=Q_COLS_T8).copy()
 
-                from numpy.polynomial.hermite import hermgauss
                 from scipy.optimize import minimize
                 from scipy.special import expit
 
-                _n_quad = 20
-                _pts, _wts = hermgauss(_n_quad)
-                _theta = _pts * np.sqrt(2)
-                _wts_n = _wts / _wts.sum()
+                Y_irt = scored_irt[Q_COLS_T8].values.astype(np.float64)
+                N_irt, K_irt = Y_irt.shape
 
-                def _fit_3pl_item(y_series):
-                    y = y_series.values.astype(np.float64)
-                    if len(y) < 10:
-                        return np.nan, np.nan, np.nan
-                    p_hat = y.mean()
-                    b0 = float(np.log(max(1 - p_hat, 0.01) / max(p_hat, 0.01)))
+                # 61 quadrature nodes between -6 and +6 (matching mirt default)
+                _n_quad = 61
+                _theta_nodes = np.linspace(-6, 6, _n_quad)
+                _wts_raw = np.exp(-0.5 * _theta_nodes**2)
+                _wts_n = _wts_raw / _wts_raw.sum()
 
-                    def neg_ll(params):
-                        a, b, c = params
-                        p = c + (1 - c) * expit(a * (_theta[:, None] - b))
-                        p = np.clip(p, 1e-9, 1 - 1e-9)
-                        lik = p ** y[None, :] * (1 - p) ** (1 - y[None, :])
-                        marg = (_wts_n[:, None] * lik).sum(axis=0)
-                        return -np.sum(np.log(np.maximum(marg, 1e-300)))
+                # Initial values for 75 parameters [a_1..a_25, b_1..b_25, c_1..c_25]
+                p_hat_irt = Y_irt.mean(axis=0)
+                b_init = np.log(np.maximum(1 - p_hat_irt, 0.01) / np.maximum(p_hat_irt, 0.01))
+                a_init = np.ones(K_irt)
+                c_init = np.full(K_irt, 0.15) # mirt default 0.15 start
 
-                    try:
-                        res = minimize(
-                            neg_ll, [1.0, b0, 0.20],
-                            bounds=[(0.10, 4.0), (-4.0, 4.0), (0.0, 0.40)],
-                            method="L-BFGS-B",
-                            options={"maxiter": 500, "ftol": 1e-8},
-                        )
-                        a, b, c = res.x
-                    except Exception:
-                        return np.nan, np.nan, np.nan
-                    return (
-                        float(np.clip(a, 0.1, 4.0)),
-                        float(np.clip(b, -4.0, 4.0)),
-                        float(np.clip(c, 0.0, 0.40)),
+                init_params = np.concatenate([a_init, b_init, c_init])
+
+                bounds_irt = []
+                for i in range(K_irt): bounds_irt.append((0.10, 4.0))   # a_disc
+                for i in range(K_irt): bounds_irt.append((-4.0, 4.0))  # b_diff
+                for i in range(K_irt): bounds_irt.append((0.0, 0.40))   # c_guess
+
+                def _joint_neg_ll(params):
+                    a_vec = params[0:K_irt]
+                    b_vec = params[K_irt:2*K_irt]
+                    c_vec = params[2*K_irt:3*K_irt]
+
+                    # Probability matrix (61, 25) across all items and quadrature points
+                    P_quad = c_vec[None, :] + (1.0 - c_vec[None, :]) * expit(a_vec[None, :] * (_theta_nodes[:, None] - b_vec[None, :]))
+                    P_quad = np.clip(P_quad, 1e-9, 1.0 - 1e-9)
+
+                    # Student response pattern log-likelihood across all 25 items: matrix product (61, 25) x (25, N) -> (61, N)
+                    log_P = np.log(P_quad)
+                    log_1_P = np.log(1.0 - P_quad)
+                    log_lik_mat = log_P @ Y_irt.T + log_1_P @ (1.0 - Y_irt).T
+
+                    # Stably integrate over quadrature weights
+                    max_log = log_lik_mat.max(axis=0, keepdims=True)
+                    lik_mat = np.exp(log_lik_mat - max_log)
+                    marg_lik = (_wts_n[:, None] * lik_mat).sum(axis=0)
+
+                    return -np.sum(np.log(np.maximum(marg_lik, 1e-300)) + max_log.squeeze())
+
+                try:
+                    res_irt = minimize(
+                        _joint_neg_ll, init_params,
+                        bounds=bounds_irt, method="L-BFGS-B",
+                        options={"maxiter": 300, "ftol": 1e-7},
                     )
+                    if res_irt.success or res_irt.nit > 10:
+                        a_fit = np.clip(res_irt.x[0:K_irt], 0.10, 4.0)
+                        b_fit = np.clip(res_irt.x[K_irt:2*K_irt], -4.0, 4.0)
+                        c_fit = np.clip(res_irt.x[2*K_irt:3*K_irt], 0.0, 0.40)
+                    else:
+                        a_fit, b_fit, c_fit = np.full(K_irt, np.nan), np.full(K_irt, np.nan), np.full(K_irt, np.nan)
+                except Exception:
+                    a_fit, b_fit, c_fit = np.full(K_irt, np.nan), np.full(K_irt, np.nan), np.full(K_irt, np.nan)
 
-                irt_params = [_fit_3pl_item(scored_irt[q]) for q in Q_COLS_T8]
-                irt_a = pd.Series([p[0] for p in irt_params], index=Q_COLS_T8)
-                irt_b = pd.Series([p[1] for p in irt_params], index=Q_COLS_T8)
-                irt_c = pd.Series([p[2] for p in irt_params], index=Q_COLS_T8)
+                irt_a = pd.Series(a_fit, index=Q_COLS_T8)
+                irt_b = pd.Series(b_fit, index=Q_COLS_T8)
+                irt_c = pd.Series(c_fit, index=Q_COLS_T8)
 
                 existing_types = dict(zip(df_full["item"], df_full["type"]))
 
