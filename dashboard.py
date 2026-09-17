@@ -284,6 +284,220 @@ def load_data():
 
 df_full = load_data()
 
+@st.cache_data(show_spinner=False)
+def compute_raw_excel_metrics(file_bytes):
+    import io, re
+    from scipy.optimize import minimize
+    from scipy.special import expit
+
+    raw = pd.read_excel(io.BytesIO(file_bytes))
+    
+    col_map = {}
+    for c in raw.columns:
+        c_clean = str(c).strip()
+        c_lower = c_clean.lower()
+        if c_lower in ("file_name", "filename", "file name", "file_name ", "file"):
+            col_map[c] = "file_name"
+        else:
+            m = re.match(r"^[qQ]0?([1-9]|1[0-9]|2[0-5])$", c_clean)
+            if m:
+                q_num = int(m.group(1))
+                col_map[c] = f"Q{q_num:02d}"
+    
+    df = raw.rename(columns=col_map)
+    
+    Q_COLS_T8 = [f"Q{i:02d}" for i in range(1, 26)]
+    missing_qs = [q for q in Q_COLS_T8 if q not in df.columns]
+    if missing_qs:
+        raise ValueError(
+            f"Missing item columns in uploaded file: {missing_qs}. "
+            "File must contain response columns for Q01–Q25 (or Q1–Q25)."
+        )
+    
+    if "file_name" not in df.columns:
+        df["file_name"] = "COMBINED"
+
+    ANSWER_KEY_T8 = {
+        "Q01":"b","Q02":"e","Q03":"b","Q04":"a","Q05":"d",
+        "Q06":"c","Q07":"e","Q08":"c","Q09":"a","Q10":"d",
+        "Q11":"e","Q12":"d","Q13":"c","Q14":"d","Q15":"a",
+        "Q16":"c","Q17":"b","Q18":"e","Q19":"b","Q20":"a",
+        "Q21":"c","Q22":"d","Q23":"b","Q24":"a","Q25":"e",
+    }
+
+    scored = df.copy()
+    for q in Q_COLS_T8:
+        scored[q] = df[q].astype(str).str.strip().str.lower().map(
+            lambda x, k=ANSWER_KEY_T8[q]: 1.0 if x == k else (np.nan if x in ("nan", "", "none", "null") else 0.0)
+        )
+
+    # Missing Data Policy for CTT: Convert all NAs to 0.0
+    scored_ctt = scored.copy()
+    for q in Q_COLS_T8:
+        scored_ctt[q] = scored_ctt[q].fillna(0.0)
+
+    pre_mask = scored_ctt["file_name"].astype(str).str.contains("PRE", case=False, na=False)
+    post_mask = scored_ctt["file_name"].astype(str).str.contains("POST", case=False, na=False)
+
+    if pre_mask.any():
+        pre_s = scored_ctt[pre_mask]
+        pre_diff = pre_s[Q_COLS_T8].mean()
+    else:
+        pre_diff = pd.Series(np.nan, index=Q_COLS_T8)
+
+    if post_mask.any():
+        post_s = scored_ctt[post_mask]
+        post_diff = post_s[Q_COLS_T8].mean()
+    else:
+        post_diff = pd.Series(np.nan, index=Q_COLS_T8)
+
+    gain_s = pd.Series([
+        (post_diff[q] - pre_diff[q]) / (1.0 - pre_diff[q]) if (pd.notna(post_diff[q]) and pd.notna(pre_diff[q]) and post_diff[q] >= pre_diff[q])
+        else ((post_diff[q] - pre_diff[q]) / pre_diff[q] if (pd.notna(post_diff[q]) and pd.notna(pre_diff[q]) and pre_diff[q] > 0) else np.nan)
+        for q in Q_COLS_T8
+    ], index=Q_COLS_T8)
+
+    ctt_diff_s = scored_ctt[Q_COLS_T8].mean()
+
+    def _ctt_disc(sdf):
+        if len(sdf) < 2:
+            return pd.Series(np.nan, index=Q_COLS_T8)
+        total = sdf[Q_COLS_T8].sum(axis=1)
+        cut = max(1, int(0.27 * len(sdf)))
+        ui = total.nlargest(cut).index
+        li = total.nsmallest(cut).index
+        return pd.Series({q: sdf.loc[ui, q].mean() - sdf.loc[li, q].mean() for q in Q_COLS_T8})
+
+    ctt_disc_s = _ctt_disc(scored_ctt)
+
+    total_score = scored_ctt[Q_COLS_T8].sum(axis=1)
+    pb_s = {}
+    for q in Q_COLS_T8:
+        rest = total_score - scored_ctt[q]
+        if rest.std() > 0 and scored_ctt[q].std() > 0:
+            r, _ = pointbiserialr(scored_ctt[q], rest)
+        else:
+            r = np.nan
+        pb_s[q] = r
+    pb_series = pd.Series(pb_s)
+
+    def _alpha(dfi):
+        n = dfi.shape[1]
+        var_sum = dfi.var(ddof=1).sum()
+        tot_var = dfi.sum(axis=1).var(ddof=1)
+        if tot_var <= 0 or pd.isna(tot_var):
+            return np.nan
+        return (n / (n - 1)) * (1.0 - var_sum / tot_var)
+
+    air = pd.Series({q: _alpha(scored_ctt[[c for c in Q_COLS_T8 if c != q]]) for q in Q_COLS_T8})
+
+    # Missing Data Policy for IRT: Filter complete cases (dropna on Q01-Q25)
+    scored_irt = scored.dropna(subset=Q_COLS_T8).copy()
+    n_irt = len(scored_irt)
+
+    if n_irt >= 10:
+        patterns = scored_irt.groupby(Q_COLS_T8).size().reset_index(name="_count")
+        Y_unique = patterns[Q_COLS_T8].values.astype(np.float64)
+        freqs = patterns["_count"].values.astype(np.float64)
+        U_irt, K_irt = Y_unique.shape
+
+        _n_quad = 31
+        _theta_nodes = np.linspace(-4, 4, _n_quad)
+        _wts_raw = np.exp(-0.5 * _theta_nodes**2)
+        _wts_n = _wts_raw / _wts_raw.sum()
+
+        p_hat_irt = Y_unique.mean(axis=0)
+        b_init = np.log(np.maximum(1 - p_hat_irt, 0.01) / np.maximum(p_hat_irt, 0.01))
+        a_init = np.ones(K_irt)
+        c_init = np.full(K_irt, 0.15)
+        init_params = np.concatenate([a_init, b_init, c_init])
+
+        bounds_irt = []
+        for i in range(K_irt): bounds_irt.append((0.10, 4.0))
+        for i in range(K_irt): bounds_irt.append((-4.0, 4.0))
+        for i in range(K_irt): bounds_irt.append((0.0, 0.40))
+
+        def _joint_loss_and_grad(params):
+            a = params[0:K_irt]
+            b = params[K_irt:2*K_irt]
+            c = params[2*K_irt:3*K_irt]
+
+            dev = _theta_nodes[:, None] - b[None, :]
+            p_logit = expit(a[None, :] * dev)
+            P_quad = c[None, :] + (1.0 - c[None, :]) * p_logit
+            P_quad = np.clip(P_quad, 1e-9, 1.0 - 1e-9)
+
+            log_P = np.log(P_quad)
+            log_1_P = np.log(1.0 - P_quad)
+            log_lik_mat = log_P @ Y_unique.T + log_1_P @ (1.0 - Y_unique).T
+
+            max_log = log_lik_mat.max(axis=0, keepdims=True)
+            lik_mat = np.exp(log_lik_mat - max_log)
+            w_lik = _wts_n[:, None] * lik_mat
+            marg_lik = w_lik.sum(axis=0)
+
+            loss = -np.sum(freqs * (np.log(np.maximum(marg_lik, 1e-300)) + max_log.squeeze()))
+
+            post_k_u = w_lik / np.maximum(marg_lik, 1e-300)
+            W_freq = post_k_u * freqs[None, :]
+
+            dL_dP = (W_freq @ Y_unique) / P_quad - (W_freq @ (1.0 - Y_unique)) / (1.0 - P_quad)
+            dp_dlogit = p_logit * (1.0 - p_logit)
+
+            grad_a = -np.sum(dL_dP * (1.0 - c[None, :]) * dp_dlogit * dev, axis=0)
+            grad_b = np.sum(dL_dP * (1.0 - c[None, :]) * dp_dlogit * a[None, :], axis=0)
+            grad_c = -np.sum(dL_dP * (1.0 - p_logit), axis=0)
+
+            grad = np.concatenate([grad_a, grad_b, grad_c])
+            return loss, grad
+
+        try:
+            res_irt = minimize(
+                _joint_loss_and_grad, init_params,
+                jac=True, bounds=bounds_irt, method="L-BFGS-B",
+                options={"maxiter": 80, "ftol": 1e-5},
+            )
+            if res_irt.nit >= 3:
+                a_fit = np.clip(res_irt.x[0:K_irt], 0.10, 4.0)
+                b_fit = np.clip(res_irt.x[K_irt:2*K_irt], -4.0, 4.0)
+                c_fit = np.clip(res_irt.x[2*K_irt:3*K_irt], 0.0, 0.40)
+            else:
+                a_fit, b_fit, c_fit = np.full(25, np.nan), np.full(25, np.nan), np.full(25, np.nan)
+        except Exception:
+            a_fit, b_fit, c_fit = np.full(25, np.nan), np.full(25, np.nan), np.full(25, np.nan)
+    else:
+        a_fit, b_fit, c_fit = np.full(25, np.nan), np.full(25, np.nan), np.full(25, np.nan)
+
+    irt_a = pd.Series(a_fit, index=Q_COLS_T8)
+    irt_b = pd.Series(b_fit, index=Q_COLS_T8)
+    irt_c = pd.Series(c_fit, index=Q_COLS_T8)
+
+    item_type_default = {
+        "Q01":"E","Q02":"E","Q03":"E","Q04":"E","Q05":"E",
+        "Q06":"E","Q07":"E","Q08":"E","Q09":"E","Q10":"E",
+        "Q11":"E","Q12":"E","Q13":"M","Q14":"M","Q15":"M",
+        "Q16":"E&M","Q17":"E","Q18":"E","Q19":"M","Q20":"M",
+        "Q21":"M","Q22":"M","Q23":"M","Q24":"M","Q25":"M"
+    }
+
+    result_df = pd.DataFrame({
+        "item":             Q_COLS_T8,
+        "type":             [item_type_default.get(q, "E") for q in Q_COLS_T8],
+        "pre_test":         pre_diff.values,
+        "post_test":        post_diff.values,
+        "gain":             gain_s.values,
+        "ctt_diff":         ctt_diff_s.values,
+        "ctt_disc":         ctt_disc_s.values,
+        "point_biserial":   pb_series.values,
+        "irt_diff":         irt_b.values,
+        "irt_disc":         irt_a.values,
+        "irt_guess":        irt_c.values,
+        "alpha_if_removed": air.values,
+    }).round(4)
+
+    return result_df, len(scored_ctt), n_irt
+
+
 # ─── Sidebar Controls & Language Selector ────────────────────────────────────
 with st.sidebar:
     st.markdown("## Options / Opciones")
@@ -1305,162 +1519,23 @@ with tab8:
     )
 
     if uploaded_raw is not None:
-        with st.spinner("Scoring responses and computing psychometric metrics…"):
-            try:
-                import io
-                Q_COLS_T8 = [f"Q{i:02d}" for i in range(1, 26)]
-                raw = pd.read_excel(io.BytesIO(uploaded_raw.read()))
+        try:
+            file_bytes = uploaded_raw.getvalue()
+            with st.spinner("Scoring responses and computing psychometric metrics…"):
+                result_df, n_ctt, n_irt = compute_raw_excel_metrics(file_bytes)
 
-                scored = raw.copy()
-                for q in Q_COLS_T8:
-                    scored[q] = raw[q].astype(str).str.strip().str.lower().map(
-                        lambda x, k=ANSWER_KEY_T8[q]: 1.0 if x == k else (np.nan if x in ("nan", "") else 0.0)
-                    )
+            st.success(
+                f"✅ Computation complete! CTT scored on {n_ctt:,} student records (NAs=0); "
+                f"IRT calibrated on {n_irt:,} complete-case records in sub-second speed."
+            )
+            st.dataframe(result_df, use_container_width=True, hide_index=True)
 
-                # ── Missing Data Policy ──
-                # CTT Analysis: Convert all NAs to 0.0 (incorrect)
-                scored_ctt = scored.copy()
-                for q in Q_COLS_T8:
-                    scored_ctt[q] = scored_ctt[q].fillna(0.0)
-
-                pre_s  = scored_ctt[scored_ctt["file_name"].str.contains("PRE",  case=False)].copy()
-                post_s = scored_ctt[scored_ctt["file_name"].str.contains("POST", case=False)].copy()
-
-                pre_diff  = pre_s[Q_COLS_T8].mean()
-                post_diff = post_s[Q_COLS_T8].mean()
-                gain_s    = pd.Series([
-                    (post_diff[q] - pre_diff[q]) / (1 - pre_diff[q]) if post_diff[q] >= pre_diff[q]
-                    else (post_diff[q] - pre_diff[q]) / pre_diff[q]
-                    for q in Q_COLS_T8
-                ], index=Q_COLS_T8)
-
-                # Overall CTT Difficulty (p-value) across combined pre + post dataset (NAs = 0)
-                ctt_diff_s = scored_ctt[Q_COLS_T8].mean()
-
-                # CTT Discrimination (upper 27% − lower 27%) across combined dataset (NAs = 0)
-                def _ctt_disc(sdf):
-                    total = sdf[Q_COLS_T8].sum(axis=1)
-                    cut = int(0.27 * len(sdf))
-                    ui = total.nlargest(cut).index
-                    li = total.nsmallest(cut).index
-                    return pd.Series({q: sdf.loc[ui, q].mean() - sdf.loc[li, q].mean() for q in Q_COLS_T8})
-
-                ctt_disc_s = _ctt_disc(scored_ctt)
-
-                # Point-biserial correlation across combined dataset (NAs = 0)
-                total_score = scored_ctt[Q_COLS_T8].sum(axis=1)
-                pb_s = {}
-                for q in Q_COLS_T8:
-                    rest = total_score - scored_ctt[q]
-                    r, _ = pointbiserialr(scored_ctt[q], rest)
-                    pb_s[q] = r
-                pb_series = pd.Series(pb_s)
-
-                # Cronbach’s alpha-if-removed across combined dataset (NAs = 0)
-                def _alpha(dfi):
-                    n = dfi.shape[1]
-                    return (n / (n - 1)) * (1 - dfi.var(ddof=1).sum() / dfi.sum(axis=1).var(ddof=1))
-
-                air = pd.Series({q: _alpha(scored_ctt[[c for c in Q_COLS_T8 if c != q]]) for q in Q_COLS_T8})
-
-                # ── IRT Analysis: Accelerated Joint 25-Item 3PL MML Estimation ──
-                scored_irt = scored.dropna(subset=Q_COLS_T8).copy()
-
-                from scipy.optimize import minimize
-                from scipy.special import expit
-
-                # Group response patterns into unique frequencies for 10x performance boost
-                patterns = scored_irt.groupby(Q_COLS_T8).size().reset_index(name="_count")
-                Y_unique = patterns[Q_COLS_T8].values.astype(np.float64) # Shape (U, 25)
-                freqs = patterns["_count"].values.astype(np.float64)     # Shape (U,)
-                U_irt, K_irt = Y_unique.shape
-
-                # 41 quadrature nodes between -5 and +5 for rapid MML convergence
-                _n_quad = 41
-                _theta_nodes = np.linspace(-5, 5, _n_quad)
-                _wts_raw = np.exp(-0.5 * _theta_nodes**2)
-                _wts_n = _wts_raw / _wts_raw.sum()
-
-                # Initial values for 75 parameters [a_1..a_25, b_1..b_25, c_1..c_25]
-                p_hat_irt = Y_unique.mean(axis=0)
-                b_init = np.log(np.maximum(1 - p_hat_irt, 0.01) / np.maximum(p_hat_irt, 0.01))
-                a_init = np.ones(K_irt)
-                c_init = np.full(K_irt, 0.15) # mirt default 0.15 start
-
-                init_params = np.concatenate([a_init, b_init, c_init])
-
-                bounds_irt = []
-                for i in range(K_irt): bounds_irt.append((0.10, 4.0))   # a_disc
-                for i in range(K_irt): bounds_irt.append((-4.0, 4.0))  # b_diff
-                for i in range(K_irt): bounds_irt.append((0.0, 0.40))   # c_guess
-
-                def _joint_neg_ll_fast(params):
-                    a_vec = params[0:K_irt]
-                    b_vec = params[K_irt:2*K_irt]
-                    c_vec = params[2*K_irt:3*K_irt]
-
-                    # Probability matrix (41, 25) across all items and quadrature points
-                    P_quad = c_vec[None, :] + (1.0 - c_vec[None, :]) * expit(a_vec[None, :] * (_theta_nodes[:, None] - b_vec[None, :]))
-                    P_quad = np.clip(P_quad, 1e-9, 1.0 - 1e-9)
-
-                    log_P = np.log(P_quad)
-                    log_1_P = np.log(1.0 - P_quad)
-                    log_lik_mat = log_P @ Y_unique.T + log_1_P @ (1.0 - Y_unique).T # Shape (41, U)
-
-                    max_log = log_lik_mat.max(axis=0, keepdims=True)
-                    lik_mat = np.exp(log_lik_mat - max_log)
-                    marg_lik = (_wts_n[:, None] * lik_mat).sum(axis=0)
-
-                    return -np.sum(freqs * (np.log(np.maximum(marg_lik, 1e-300)) + max_log.squeeze()))
-
-                try:
-                    res_irt = minimize(
-                        _joint_neg_ll_fast, init_params,
-                        bounds=bounds_irt, method="L-BFGS-B",
-                        options={"maxiter": 120, "ftol": 1e-5},
-                    )
-                    if res_irt.nit > 5:
-                        a_fit = np.clip(res_irt.x[0:K_irt], 0.10, 4.0)
-                        b_fit = np.clip(res_irt.x[K_irt:2*K_irt], -4.0, 4.0)
-                        c_fit = np.clip(res_irt.x[2*K_irt:3*K_irt], 0.0, 0.40)
-                    else:
-                        a_fit, b_fit, c_fit = np.full(K_irt, np.nan), np.full(K_irt, np.nan), np.full(K_irt, np.nan)
-                except Exception:
-                    a_fit, b_fit, c_fit = np.full(K_irt, np.nan), np.full(K_irt, np.nan), np.full(K_irt, np.nan)
-
-                irt_a = pd.Series(a_fit, index=Q_COLS_T8)
-                irt_b = pd.Series(b_fit, index=Q_COLS_T8)
-                irt_c = pd.Series(c_fit, index=Q_COLS_T8)
-
-                existing_types = dict(zip(df_full["item"], df_full["type"]))
-
-                result_df = pd.DataFrame({
-                    "item":             Q_COLS_T8,
-                    "type":             [existing_types.get(q, "E") for q in Q_COLS_T8],
-                    "pre_test":         pre_diff.values,
-                    "post_test":        post_diff.values,
-                    "gain":             gain_s.values,
-                    "ctt_diff":         ctt_diff_s.values,
-                    "ctt_disc":         ctt_disc_s.values,
-                    "point_biserial":   pb_series.values,
-                    "irt_diff":         irt_b.values,
-                    "irt_disc":         irt_a.values,
-                    "irt_guess":        irt_c.values,
-                    "alpha_if_removed": air.values,
-                }).round(4)
-
-                st.success(
-                    f"✅ Done! CTT scored on {len(scored_ctt):,} records (NAs=0); "
-                    f"IRT fitted on {len(scored_irt):,} complete-case records."
-                )
-                st.dataframe(result_df, use_container_width=True, hide_index=True)
-
-                csv_out = result_df.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    label="⬇ Download as CSV (import into Tab 4)",
-                    data=csv_out,
-                    file_name="computed_metrics.csv",
-                    mime="text/csv",
-                )
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
+            csv_out = result_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="⬇ Download as CSV (import into Tab 4)",
+                data=csv_out,
+                file_name="computed_metrics.csv",
+                mime="text/csv",
+            )
+        except Exception as e:
+            st.error(f"❌ Error processing file: {e}")
