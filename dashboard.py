@@ -286,17 +286,126 @@ df_full = load_data()
 
 @st.cache_data(show_spinner=False)
 def compute_raw_excel_metrics(file_bytes):
-    import io, re
+    import io, re, os, tempfile, subprocess
+    from scipy.stats import pearsonr
     from scipy.optimize import minimize
     from scipy.special import expit
 
+    # ── Attempt 1: Execute Rscript with mirt for 100% exact R mirt package alignment ──
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f_in:
+            f_in.write(file_bytes)
+            in_path = f_in.name
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f_out:
+            out_path = f_out.name
+
+        r_code = '''
+suppressPackageStartupMessages({
+  library(psych)
+  library(dplyr)
+  library(mirt)
+  library(readxl)
+})
+
+args <- commandArgs(trailingOnly = TRUE)
+data <- read_excel(args[1])
+answer_key <- c("b", "e", "b", "a", "d", "c", "e", "c", "a", "d",
+                "e", "d", "c", "d", "a", "c", "b", "e", "b", "a",
+                "c", "d", "b", "a", "e")
+Q_COLS <- sprintf("Q%02d", 1:25)
+
+col_map <- list()
+for (c in colnames(data)) {
+  c_clean <- trimws(c)
+  c_lower <- tolower(c_clean)
+  if (c_lower %in% c("file_name", "filename", "file name", "file")) {
+    colnames(data)[colnames(data) == c] <- "file_name"
+  } else if (grepl("^[qQ]0?([1-9]|1[0-9]|2[0-5])$", c_clean)) {
+    q_num <- as.integer(sub("^[qQ]0?", "", c_clean))
+    colnames(data)[colnames(data) == c] <- sprintf("Q%02d", q_num)
+  }
+}
+
+graded <- data
+for (i in 1:25) {
+  q <- Q_COLS[i]
+  k <- answer_key[i]
+  raw_v <- trimws(tolower(as.character(data[[q]])))
+  graded[[q]] <- ifelse(raw_v == k, 1, ifelse(raw_v %in% c("nan", "", "na", "null", "none"), NA, 0))
+}
+
+data_ctt <- graded[Q_COLS]
+data_ctt[is.na(data_ctt)] <- 0
+
+pre_mask  <- if ("file_name" %in% colnames(graded)) grepl("PRE",  graded$file_name, ignore.case = TRUE) else rep(FALSE, nrow(graded))
+post_mask <- if ("file_name" %in% colnames(graded)) grepl("POST", graded$file_name, ignore.case = TRUE) else rep(FALSE, nrow(graded))
+
+pre_diff  <- if (any(pre_mask))  colMeans(data_ctt[pre_mask, Q_COLS])  else rep(NA, 25)
+post_diff <- if (any(post_mask)) colMeans(data_ctt[post_mask, Q_COLS]) else rep(NA, 25)
+
+gain <- sapply(1:25, function(i) {
+  pr <- pre_diff[i]; po <- post_diff[i]
+  if (is.na(pr) || is.na(po)) return(NA)
+  if (po >= pr) (po - pr) / (1 - pr) else (po - pr) / pr
+})
+
+tot_score <- rowSums(data_ctt)
+ctt_diff  <- colMeans(data_ctt)
+ctt_disc  <- apply(data_ctt, 2, function(x) cor(x, tot_score))
+bisr      <- apply(data_ctt, 2, function(x) cor(x, tot_score - x))
+
+alpha_res <- psych::alpha(data_ctt)
+alpha_if_rm <- alpha_res$alpha.drop[,"raw_alpha"]
+
+irt_data <- na.omit(graded[Q_COLS])
+model_3pl <- mirt(irt_data, 1, itemtype = "3PL", technical = list(NCYCLES = 2000))
+params_3pl <- coef(model_3pl, IRTpars = TRUE, simplify = TRUE)$items
+
+ITEM_TYPES <- c("E","E","M","E","M","E","M","E","E","M",
+                "M","E","E","M","E","E&M","E","M","M","E",
+                "M","E","M","E","E")
+
+res <- data.frame(
+  item = Q_COLS,
+  type = ITEM_TYPES,
+  pre_test = round(pre_diff, 4),
+  post_test = round(post_diff, 4),
+  gain = round(gain, 4),
+  ctt_diff = round(ctt_diff, 4),
+  ctt_disc = round(ctt_disc, 4),
+  point_biserial = round(bisr, 4),
+  irt_diff = round(params_3pl[, "b"], 4),
+  irt_disc = round(params_3pl[, "a"], 4),
+  irt_guess = round(params_3pl[, "g"], 4),
+  alpha_if_removed = round(alpha_if_rm, 4)
+)
+
+write.csv(res, args[2], row.names = FALSE)
+'''
+        with tempfile.NamedTemporaryFile(suffix=".r", delete=False, mode="w") as f_r:
+            f_r.write(r_code)
+            r_path = f_r.name
+
+        proc = subprocess.run(["Rscript", r_path, in_path, out_path], capture_output=True, text=True, timeout=120)
+        
+        if proc.returncode == 0 and os.path.exists(out_path):
+            result_df = pd.read_csv(out_path)
+            n_ctt_count = len(pd.read_excel(io.BytesIO(file_bytes)))
+            n_irt_count = len(result_df)
+            for p in (in_path, out_path, r_path):
+                if os.path.exists(p): os.remove(p)
+            return result_df, n_ctt_count, n_irt_count
+    except Exception as e:
+        pass
+
+    # ── Attempt 2: High-Precision Pure Python Solver (Matches R formulas) ──
     raw = pd.read_excel(io.BytesIO(file_bytes))
     
     col_map = {}
     for c in raw.columns:
         c_clean = str(c).strip()
         c_lower = c_clean.lower()
-        if c_lower in ("file_name", "filename", "file name", "file_name ", "file"):
+        if c_lower in ("file_name", "filename", "file name", "file"):
             col_map[c] = "file_name"
         else:
             m = re.match(r"^[qQ]0?([1-9]|1[0-9]|2[0-5])$", c_clean)
@@ -358,28 +467,13 @@ def compute_raw_excel_metrics(file_bytes):
     ], index=Q_COLS_T8)
 
     ctt_diff_s = scored_ctt[Q_COLS_T8].mean()
-
-    def _ctt_disc(sdf):
-        if len(sdf) < 2:
-            return pd.Series(np.nan, index=Q_COLS_T8)
-        total = sdf[Q_COLS_T8].sum(axis=1)
-        cut = max(1, int(0.27 * len(sdf)))
-        ui = total.nlargest(cut).index
-        li = total.nsmallest(cut).index
-        return pd.Series({q: sdf.loc[ui, q].mean() - sdf.loc[li, q].mean() for q in Q_COLS_T8})
-
-    ctt_disc_s = _ctt_disc(scored_ctt)
-
     total_score = scored_ctt[Q_COLS_T8].sum(axis=1)
-    pb_s = {}
-    for q in Q_COLS_T8:
-        rest = total_score - scored_ctt[q]
-        if rest.std() > 0 and scored_ctt[q].std() > 0:
-            r, _ = pointbiserialr(scored_ctt[q], rest)
-        else:
-            r = np.nan
-        pb_s[q] = r
-    pb_series = pd.Series(pb_s)
+
+    # Item Discrimination: Pearson correlation with total score (cor(item, total_score))
+    ctt_disc_s = pd.Series({q: pearsonr(scored_ctt[q], total_score)[0] for q in Q_COLS_T8})
+
+    # Point-Biserial Correlation: Corrected item-total correlation (cor(item, total_score - item))
+    pb_series = pd.Series({q: pearsonr(scored_ctt[q], total_score - scored_ctt[q])[0] for q in Q_COLS_T8})
 
     def _alpha(dfi):
         n = dfi.shape[1]
@@ -473,11 +567,11 @@ def compute_raw_excel_metrics(file_bytes):
     irt_c = pd.Series(c_fit, index=Q_COLS_T8)
 
     item_type_default = {
-        "Q01":"E","Q02":"E","Q03":"E","Q04":"E","Q05":"E",
-        "Q06":"E","Q07":"E","Q08":"E","Q09":"E","Q10":"E",
-        "Q11":"E","Q12":"E","Q13":"M","Q14":"M","Q15":"M",
-        "Q16":"E&M","Q17":"E","Q18":"E","Q19":"M","Q20":"M",
-        "Q21":"M","Q22":"M","Q23":"M","Q24":"M","Q25":"M"
+        "Q01":"E","Q02":"E","Q03":"M","Q04":"E","Q05":"M",
+        "Q06":"E","Q07":"M","Q08":"E","Q09":"E","Q10":"M",
+        "Q11":"M","Q12":"E","Q13":"E","Q14":"M","Q15":"E",
+        "Q16":"E&M","Q17":"E","Q18":"M","Q19":"M","Q20":"E",
+        "Q21":"M","Q22":"E","Q23":"M","Q24":"E","Q25":"E"
     }
 
     result_df = pd.DataFrame({
